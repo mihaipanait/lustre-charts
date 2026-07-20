@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lustre — 3D charts with lustre</title>
+  <meta name="description" content="Gorgeous, configurable 3D charts for the web — metallic, glass, neon and holographic looks built on three.js." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2300e5ff'/%3E%3Cstop offset='1' stop-color='%237c4dff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M16 2 L28 12 L16 30 L4 12 Z' fill='url(%23g)'/%3E%3Cpath d='M16 2 L22 12 L16 30 L10 12 Z' fill='%23ffffff' opacity='.25'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "lustre-charts": "../src/index.js"
+    }
+  }
+  </script>
+</head>
+<body data-theme="dark">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-gem" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+        <defs>
+          <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#00e5ff"/><stop offset="1" stop-color="#7c4dff"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 2 L28 12 L16 30 L4 12 Z" fill="url(#gem)"/>
+        <path d="M16 2 L22 12 L16 30 L10 12 Z" fill="#fff" opacity=".25"/>
+      </svg>
+      <span class="brand-name">Lustre</span>
+      <span class="brand-tag">3D charts with lustre</span>
+    </div>
+    <nav class="topnav">
+      <a href="https://github.com/mihaipanait/lustre-charts/tree/main/docs" title="Documentation">Docs</a>
+      <a href="https://github.com/mihaipanait/lustre-charts" title="GitHub repository" class="gh-link">
+        <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <button id="themeToggle" class="icon-btn" title="Toggle light / dark theme" aria-label="Toggle theme">
+        <svg class="ico-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="ico-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <aside class="panel" id="panel">
+
+      <section class="card">
+        <h3>Chart</h3>
+        <div class="segmented" id="typeSeg" role="tablist">
+          <button data-type="pie" class="active" role="tab">Pie / Donut</button>
+          <button data-type="bar" role="tab">Bar</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Material</h3>
+        <div class="chip-grid" id="materialGrid"></div>
+      </section>
+
+      <section class="card">
+        <h3>Palette</h3>
+        <div class="palette-list" id="paletteList"></div>
+      </section>
+
+      <section class="card" id="pieControls">
+        <h3>Shape</h3>
+        <label class="row">
+          <span>Profile</span>
+          <select id="profileSelect">
+            <option value="auto" selected>Auto</option>
+            <option value="rounded">Rounded</option>
+            <option value="straight">Straight</option>
+            <option value="pillow">Pillow</option>
+            <option value="tube">Tube</option>
+            <option value="wavy">Custom · wavy</option>
+          </select>
+        </label>
+        <label class="slider-row">
+          <span>Height <em id="v-height"></em></span>
+          <input type="range" id="s-height" min="0.2" max="2.6" step="0.05" value="1.15" />
+        </label>
+        <label class="slider-row">
+          <span>Inner radius <em id="v-inner"></em></span>
+          <input type="range" id="s-inner" min="0" max="2.6" step="0.05" value="1.65" />
+        </label>
+        <label class="slider-row">
+          <span>Corner radius <em id="v-corner"></em></span>
+          <input type="range" id="s-corner" min="0" max="0.5" step="0.01" value="0.16" />
+        </label>
+        <label class="slider-row">
+          <span>Slice gap <em id="v-pad"></em></span>
+          <input type="range" id="s-pad" min="0" max="8" step="0.2" value="1.4" />
+        </label>
+        <label class="slider-row">
+          <span>Explode <em id="v-explode"></em></span>
+          <input type="range" id="s-explode" min="0" max="1" step="0.02" value="0" />
+        </label>
+      </section>
+
+      <section class="card hidden" id="barControls">
+        <h3>Bars</h3>
+        <label class="slider-row">
+          <span>Bar width <em id="v-barw"></em></span>
+          <input type="range" id="s-barw" min="0.25" max="0.95" step="0.05" value="0.6" />
+        </label>
+        <label class="slider-row">
+          <span>Spacing <em id="v-gap"></em></span>
+          <input type="range" id="s-gap" min="0" max="0.9" step="0.05" value="0.25" />
+        </label>
+        <label class="slider-row">
+          <span>Corner radius <em id="v-barr"></em></span>
+          <input type="range" id="s-barr" min="0" max="0.25" step="0.01" value="0.07" />
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>Motion</h3>
+        <label class="row">
+          <span>Entrance</span>
+          <select id="entranceSelect">
+            <option value="auto" selected>Auto</option>
+            <option value="sweep">Sweep</option>
+            <option value="rise">Rise</option>
+            <option value="scale">Scale</option>
+            <option value="wave">Wave (bar)</option>
+            <option value="grow">Grow (bar)</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+        <div class="toggles">
+          <label class="switch"><input type="checkbox" id="t-rotate" /><i></i><span>Auto rotate</span></label>
+        </div>
+        <button class="btn btn-accent" id="replayBtn">⟲&nbsp; Replay entrance</button>
+      </section>
+
+      <section class="card">
+        <h3>Scene</h3>
+        <div class="toggles">
+          <label class="switch"><input type="checkbox" id="t-labels" checked /><i></i><span>Labels</span></label>
+          <label class="switch"><input type="checkbox" id="t-legend" checked /><i></i><span>Legend</span></label>
+          <label class="switch"><input type="checkbox" id="t-shadow" checked /><i></i><span>Soft shadow</span></label>
+          <label class="switch"><input type="checkbox" id="t-grid" /><i></i><span>Neon grid</span></label>
+          <label class="switch"><input type="checkbox" id="t-rings" /><i></i><span>HUD rings</span></label>
+          <label class="switch"><input type="checkbox" id="t-particles" /><i></i><span>Particles</span></label>
+          <label class="switch"><input type="checkbox" id="t-bloom" checked /><i></i><span>Bloom (auto)</span></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Data</h3>
+        <div class="btn-row">
+          <button class="btn" id="randomBtn">🎲 Randomize</button>
+          <button class="btn" id="addBtn">＋ Add</button>
+          <button class="btn" id="removeBtn">－ Remove</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Export</h3>
+        <div class="btn-row">
+          <button class="btn" id="pngBtn">🖼 PNG</button>
+          <button class="btn" id="copyBtn">⧉ Copy config</button>
+        </div>
+        <details class="code-details">
+          <summary>View config</summary>
+          <pre id="codeView"></pre>
+        </details>
+      </section>
+
+      <footer class="panel-footer">
+        <span>lustre-charts <b id="version"></b> · MIT</span>
+      </footer>
+    </aside>
+
+    <section class="stage-wrap">
+      <div id="stage" aria-label="Chart preview"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

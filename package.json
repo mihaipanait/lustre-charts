@@ -1,0 +1,50 @@
+{
+  "name": "lustre-charts",
+  "version": "0.1.0",
+  "description": "Gorgeous, configurable 3D charts for the web — metallic, glass, neon and holographic looks built on Three.js. Few chart types, obsessive attention to how they look.",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "node tools/dev-server.mjs 5173",
+    "demo": "node tools/dev-server.mjs 5173"
+  },
+  "keywords": [
+    "charts",
+    "3d",
+    "threejs",
+    "three",
+    "webgl",
+    "pie-chart",
+    "donut-chart",
+    "bar-chart",
+    "dataviz",
+    "visualization",
+    "neon",
+    "glassmorphism",
+    "metallic"
+  ],
+  "author": "Mihai Panait",
+  "license": "MIT",
+  "peerDependencies": {
+    "three": ">=0.167.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mihaipanait/lustre-charts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mihaipanait/lustre-charts/issues"
+  },
+  "homepage": "https://github.com/mihaipanait/lustre-charts#readme"
+}

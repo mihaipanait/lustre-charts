@@ -1,0 +1,9 @@
+# Normalize line endings: commit as LF, let editors do what they like locally
+* text=auto eol=lf
+
+# Binary assets
+*.jpg binary
+*.png binary
+*.webp binary
+*.avif binary
+*.ico binary

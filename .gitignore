@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output (library ships as source ESM; dist only if you add a bundler)
+dist/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local scratch
+*.local
+.claude/
+
+# Local inspiration / prototypes — stock imagery, not redistributable
+reference-images/
+sample/
+
+# Visual-check output from tools/dev-server.mjs
+tools/*.jpg
+tools/*.png
