@@ -29,7 +29,7 @@ import { Easings } from './core/Tween.js';
 import { DEFAULT_OPTIONS } from './core/defaults.js';
 
 /** Library version (kept in sync with package.json). */
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 
 /** @type {Record<string, any>} */
 const REGISTRY = {
