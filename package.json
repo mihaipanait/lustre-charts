@@ -46,5 +46,8 @@
   "bugs": {
     "url": "https://github.com/mihaipanait/lustre-charts/issues"
   },
-  "homepage": "https://mihaipanait.github.io/lustre-charts/"
+  "homepage": "https://mihaipanait.github.io/lustre-charts/",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
 }
