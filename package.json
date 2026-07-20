@@ -1,6 +1,6 @@
 {
   "name": "lustre-charts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gorgeous, configurable 3D charts for the web — metallic, glass, neon and holographic looks built on Three.js. Few chart types, obsessive attention to how they look.",
   "type": "module",
   "main": "./src/index.js",
