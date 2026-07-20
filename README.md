@@ -7,6 +7,7 @@
 *In mineralogy, "lustre" names the ways light plays on a surface — metallic, vitreous, adamantine.
 This library brings those finishes to your data.*
 
+[![live demo](https://img.shields.io/badge/%E2%96%B6%20live%20demo-mihaipanait.github.io-ff4081)](https://mihaipanait.github.io/lustre-charts/)
 [![npm](https://img.shields.io/badge/npm-lustre--charts-cb3837?logo=npm)](https://www.npmjs.com/package/lustre-charts)
 [![license](https://img.shields.io/badge/license-MIT-7c4dff)](LICENSE)
 [![three.js](https://img.shields.io/badge/three.js-%E2%89%A5r167-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)
@@ -14,6 +15,8 @@ This library brings those finishes to your data.*
 [![no build](https://img.shields.io/badge/build%20step-none-ffb300)](#development)
 
 <img src="docs/assets/hero-donut-dark.jpg" alt="Lustre donut chart, glossy material, dark theme" width="820" />
+
+**[▶ Play with the live demo](https://mihaipanait.github.io/lustre-charts/)** — every material, palette and effect, right in your browser.
 
 *Few chart types. Obsessive attention to how they look.*
 
@@ -171,6 +174,10 @@ options: {
 | [Bar charts](docs/charts/bar.md) | series, axis, entrances |
 
 ## Demo playground
+
+**[▶ mihaipanait.github.io/lustre-charts](https://mihaipanait.github.io/lustre-charts/)** — hosted straight from this repo, nothing to install.
+
+Or run it locally:
 
 ```bash
 git clone https://github.com/mihaipanait/lustre-charts.git
