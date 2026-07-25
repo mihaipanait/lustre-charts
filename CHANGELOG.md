@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] — 2026-07-25
+
+### Added
+
+- Add TypeScript declarations and a strict public-API compilation test.
+- Add geometry invariant and malformed-profile tests.
+- Add a clean packed-consumer installation smoke test.
+- Add automated Chromium coverage for runtime options, lifecycle cleanup,
+  accessibility controls, both chart types, and mobile sizing.
+- Add a CI compatibility matrix for the supported Three.js floor and latest
+  release.
+- Add ESLint to the local, CI, and release quality gates.
+
+### Changed
+
+- Bound the tested Three.js peer range to `>= 0.167.0 < 0.186.0`.
+- Require the complete quality and browser gates before trusted npm publishing.
+
+### Fixed
+
+- Reject unknown, degenerate, or non-finite custom profiles with actionable
+  errors instead of producing invalid geometry.
+
 ## [0.1.3] — 2026-07-25
 
 ### Added

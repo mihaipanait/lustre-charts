@@ -42,6 +42,9 @@ map, so just edit and refresh.
 | `src/overlay/` | SVG callout labels, tooltip, legend (DOM) |
 | `src/fx/` | Bloom composer + scene decorations |
 | `demo/` | The playground page (also serves as visual regression bed) |
+| `browser-tests/` | Playwright integration, accessibility and responsive tests |
+| `test/` | Node unit and geometry tests |
+| `type-tests/` | Public TypeScript API compilation |
 | `docs/` | Markdown documentation |
 
 ## Code style
@@ -54,10 +57,12 @@ map, so just edit and refresh.
 
 ## Before opening a PR
 
-1. Run the demo and eyeball **all material presets × both themes × all chart
+1. Run `npm run check`.
+2. Run `npm run test:browser`.
+3. Run the demo and eyeball **all material presets × both themes × all chart
    types**. Screenshots in the PR description are hugely appreciated.
-2. Check the browser console — zero errors, zero warnings.
-3. Update `docs/` and `CHANGELOG.md` if you changed public behavior.
+4. Check the browser console — zero errors, zero warnings.
+5. Update `docs/` and `CHANGELOG.md` if you changed public behavior.
 
 ## Reporting bugs
 

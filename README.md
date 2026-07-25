@@ -11,7 +11,7 @@ This library brings those finishes to your data.*
 [![CI](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml/badge.svg)](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-lustre--charts-cb3837?logo=npm)](https://www.npmjs.com/package/lustre-charts)
 [![license](https://img.shields.io/badge/license-MIT-7c4dff)](LICENSE)
-[![three.js](https://img.shields.io/badge/three.js-%E2%89%A5r167-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)
+[![three.js](https://img.shields.io/badge/three.js-r167--r185-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)
 [![zero deps](https://img.shields.io/badge/runtime%20deps-zero-39ff88)](package.json)
 [![no build](https://img.shields.io/badge/build%20step-none-ffb300)](#development)
 
@@ -65,6 +65,14 @@ Everything else is *look and feel*:
 
 ```bash
 npm install lustre-charts three
+```
+
+TypeScript declarations ship with the package. Because three.js publishes its
+types separately, TypeScript projects should also install the matching type
+package:
+
+```bash
+npm install -D @types/three
 ```
 
 ```js
@@ -196,6 +204,11 @@ effect — and generates the config snippet for whatever you build.
 There is **no build step**. The library is modern ES modules in [`src/`](src/), loaded directly
 by the demo via an import map. Edit, refresh, done. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+```bash
+npm run check          # unit/geometry, lint, types, packed consumer, publint
+npm run test:browser   # Chromium integration, accessibility, lifecycle, mobile
+```
+
 ```
 src/
 ├── index.js          public API (LustreChart factory + exports)
@@ -213,7 +226,8 @@ src/
 
 ## Browser support
 
-Any evergreen browser with WebGL2. `three >= 0.167` is a peer dependency.
+Any evergreen browser with WebGL2. The supported and continuously tested
+three.js range is `>= 0.167.0 < 0.186.0`.
 
 ## License
 

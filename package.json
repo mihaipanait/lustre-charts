@@ -5,8 +5,13 @@
   "type": "module",
   "main": "./src/index.js",
   "module": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
-    ".": "./src/index.js"
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
   },
   "files": [
     "src",
@@ -18,7 +23,14 @@
   "scripts": {
     "dev": "node tools/dev-server.mjs 5173",
     "demo": "node tools/dev-server.mjs 5173",
-    "test": "node --test",
+    "test": "npm run test:unit",
+    "test:unit": "node --test",
+    "test:browser": "playwright test",
+    "test:consumer": "node tools/consumer-smoke.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p type-tests/tsconfig.json",
+    "package:check": "npm pack --dry-run && publint",
+    "check": "npm run test:unit && npm run lint && npm run typecheck && npm run test:consumer && npm run package:check",
     "version": "node tools/sync-version.mjs && git add src/index.js"
   },
   "keywords": [
@@ -39,7 +51,23 @@
   "author": "Mihai Panait",
   "license": "MIT",
   "peerDependencies": {
-    "three": ">=0.167.0"
+    "@types/three": ">=0.167.0 <0.186.0",
+    "three": ">=0.167.0 <0.186.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.0",
+    "@types/three": "^0.185.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.7.0",
+    "publint": "^0.3.22",
+    "three": "0.185.1",
+    "typescript": "^7.0.2"
   },
   "repository": {
     "type": "git",

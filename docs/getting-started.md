@@ -8,7 +8,15 @@
 npm install lustre-charts three
 ```
 
-`three` is a peer dependency (`>= 0.167`) — you control the version.
+`three` is a peer dependency (`>= 0.167.0 < 0.186.0`) — you control the
+version. CI exercises the range floor and the current latest release.
+
+TypeScript declarations are included. TypeScript projects should install the
+matching three.js declarations as a development dependency:
+
+```bash
+npm install -D @types/three
+```
 
 ```js
 import { LustreChart } from 'lustre-charts';

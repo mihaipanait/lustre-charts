@@ -326,7 +326,6 @@ export class BarChart extends BaseChart {
     }
 
     this._entranceProgress = 0;
-    const L = this._layoutInfo;
     const drop = this.options.bar.maxHeight * 1.15;
     let remaining = this.items.length;
     const done = () => {

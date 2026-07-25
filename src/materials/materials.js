@@ -232,7 +232,7 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
  * @param {object} cfg
  */
 function applyOverrides(spec, cfg) {
-  const { preset, outline, ...rest } = cfg;
+  const { preset: _preset, outline, ...rest } = cfg;
   for (const [key, value] of Object.entries(rest)) {
     if (!(key in spec.material)) continue;
     const current = spec.material[key];

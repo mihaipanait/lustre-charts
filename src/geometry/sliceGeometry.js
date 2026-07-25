@@ -138,6 +138,14 @@ function tubeProfile(inner, outer, h, segments = 28) {
  * @param {number} [creaseAngleDeg]
  */
 function customProfile(raw, creaseAngleDeg = 38) {
+  if (!Array.isArray(raw) || raw.some((p) =>
+    !p ||
+    typeof p !== 'object' ||
+    !Number.isFinite(p.x) ||
+    !Number.isFinite(p.y)
+  )) {
+    throw new Error('[lustre-charts] custom profile points need finite x and y values');
+  }
   let pts = raw
     .map((p) => ({ x: Math.max(0, p.x), y: p.y }))
     .filter((p, i, arr) => i === 0 || Math.hypot(p.x - arr[i - 1].x, p.y - arr[i - 1].y) > EPS);
@@ -152,6 +160,9 @@ function customProfile(raw, creaseAngleDeg = 38) {
   for (let i = 0; i < pts.length; i++) {
     const a = pts[i], b = pts[(i + 1) % pts.length];
     area += a.x * b.y - b.x * a.y;
+  }
+  if (Math.abs(area) <= EPS) {
+    throw new Error('[lustre-charts] custom profile needs a non-zero enclosed area');
   }
   if (area < 0) pts.reverse();
 
@@ -217,6 +228,15 @@ function dedupePositions(points) {
  * @returns {Profile}
  */
 export function buildProfile(profile, { innerRadius, radius, height, cornerRadius }) {
+  const dimensions = { innerRadius, radius, height, cornerRadius };
+  for (const [name, value] of Object.entries(dimensions)) {
+    if (!Number.isFinite(value)) {
+      throw new Error(`[lustre-charts] profile ${name} must be a finite number`);
+    }
+  }
+  if (radius <= EPS || height <= EPS) {
+    throw new Error('[lustre-charts] profile radius and height must be greater than zero');
+  }
   const inner = Math.max(0, Math.min(innerRadius, radius * 0.98));
   if (Array.isArray(profile)) return customProfile(profile);
   switch (profile) {
@@ -226,9 +246,11 @@ export function buildProfile(profile, { innerRadius, radius, height, cornerRadiu
       return roundedRectProfile(inner, radius, height, Math.min(height / 2, (radius - inner) / 2) * 0.96, 8);
     case 'tube':
       return tubeProfile(inner, radius, height);
+    case 'auto':
     case 'rounded':
-    default:
       return roundedRectProfile(inner, radius, height, cornerRadius, 6);
+    default:
+      throw new Error(`[lustre-charts] unknown profile "${profile}"`);
   }
 }
 
@@ -249,7 +271,15 @@ const FULL = Math.PI * 2;
  * @returns {THREE.BufferGeometry}
  */
 export function buildSliceGeometry(profile, thetaStart, thetaLength, opts = {}) {
-  const res = opts.radialResolution ?? 96;
+  validateProfile(profile);
+  if (!Number.isFinite(thetaStart) || !Number.isFinite(thetaLength)) {
+    throw new Error('[lustre-charts] slice angles must be finite numbers');
+  }
+  const requestedResolution = opts.radialResolution ?? 96;
+  if (!Number.isFinite(requestedResolution) || requestedResolution < 2) {
+    throw new Error('[lustre-charts] radialResolution must be a finite number of at least 2');
+  }
+  const res = Math.floor(requestedResolution);
   const len = Math.max(1e-5, Math.min(thetaLength, FULL));
   const isFull = len >= FULL - 1e-4;
   const N = Math.max(2, Math.ceil((len / FULL) * res));
@@ -364,6 +394,28 @@ export function buildSliceGeometry(profile, thetaStart, thetaLength, opts = {}) 
   geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   geo.setIndex(indices);
   return geo;
+}
+
+function validateProfile(profile) {
+  if (!profile || !Array.isArray(profile.points) || profile.points.length < 3) {
+    throw new Error('[lustre-charts] profile needs at least 3 strip points');
+  }
+  if (!Array.isArray(profile.capContour) || profile.capContour.length < 3) {
+    throw new Error('[lustre-charts] profile needs at least 3 cap contour points');
+  }
+  const stripIsFinite = profile.points.every((p) =>
+    p &&
+    Number.isFinite(p.x) &&
+    Number.isFinite(p.y) &&
+    Number.isFinite(p.nx) &&
+    Number.isFinite(p.ny)
+  );
+  const contourIsFinite = profile.capContour.every((p) =>
+    p && Number.isFinite(p.x) && Number.isFinite(p.y)
+  );
+  if (!stripIsFinite || !contourIsFinite) {
+    throw new Error('[lustre-charts] profile geometry contains non-finite values');
+  }
 }
 
 /**

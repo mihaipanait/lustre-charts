@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,15 +19,47 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
 
-      - name: Test
-        run: npm test
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Check JavaScript syntax
-        run: find src demo tools test -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+      - name: Run quality gate
+        run: npm run check
 
-      - name: Inspect package contents
-        run: npm pack --dry-run
+  browser-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        three-version: ['0.167.0', 'latest']
+    name: Browser / Three.js ${{ matrix.three-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-      - name: Lint package metadata
-        run: npx --yes publint
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Three.js ${{ matrix.three-version }}
+        run: npm install --force --no-save --package-lock=false three@${{ matrix.three-version }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test geometry
+        run: npm run test:unit
+
+      - name: Test packed consumer
+        run: npm run test:consumer
+        env:
+          LUSTRE_THREE_VERSION: ${{ matrix.three-version }}
+
+      - name: Test browser integration
+        run: npm run test:browser

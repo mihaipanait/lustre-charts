@@ -13,7 +13,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { BaseChart } from '../core/BaseChart.js';
 import { createTooltipContent } from '../overlay/Tooltip.js';
 import { buildProfile, buildSliceGeometry, buildSliceOutlinePositions } from '../geometry/sliceGeometry.js';
-import { createItemMaterial, autoProfileFor, materialWantsBloom } from '../materials/materials.js';
+import { createItemMaterial, autoProfileFor } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
 import { optionPatchNeedsRebuild } from '../core/runtimeOptions.js';
 import { clamp } from '../core/utils.js';

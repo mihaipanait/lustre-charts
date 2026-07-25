@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { LustreChart } from '../src/index.js';
 
 const container = document.getElementById('chart');
@@ -11,6 +12,25 @@ function assert(condition, message) {
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function contentFitsCamera(chart, tolerance = 1.02) {
+  chart.scene.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(chart.chartGroup);
+  const corners = [];
+  for (const x of [box.min.x, box.max.x]) {
+    for (const y of [box.min.y, box.max.y]) {
+      for (const z of [box.min.z, box.max.z]) {
+        corners.push(new THREE.Vector3(x, y, z).project(chart.camera));
+      }
+    }
+  }
+  return corners.every((point) =>
+    Math.abs(point.x) <= tolerance &&
+    Math.abs(point.y) <= tolerance &&
+    point.z >= -1 &&
+    point.z <= 1
+  );
 }
 
 async function run() {
@@ -88,7 +108,30 @@ async function run() {
   assert(chart.options.quality.antialias === antialias, 'antialias remains constructor-only');
 
   chart.destroy();
-  assert(container.children.length === 0, 'destroy removes chart DOM');
+  assert(container.children.length === 0, 'pie destroy removes chart DOM');
+
+  const bars = new LustreChart(container, {
+    type: 'bar',
+    data: {
+      categories: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'],
+      series: [
+        { name: 'Plan', values: [42, 58, 51, 74, 63, 82] },
+        { name: 'Actual', values: [55, 67, 80, 96, 78, 104] },
+        { name: 'Forecast', values: [68, 84, 97, 121, 99, 132] },
+      ],
+    },
+    options: {
+      animation: { entrance: 'none' },
+      responsive: false,
+    },
+  });
+  await nextFrame();
+  assert(contentFitsCamera(bars), 'grouped bars fit a narrow camera frustum');
+  assert(bars.canvas.getAttribute('aria-label').includes('3 series'), 'bar ARIA summary is present');
+  bars.applyOptions({ theme: 'light', labels: { fontSize: 15 } });
+  assert(bars.theme.kind === 'light', 'bar theme and labels update live');
+  bars.destroy();
+  assert(container.children.length === 0, 'bar destroy removes chart DOM');
 
   window.__testResult = { ok: true, checks };
   document.body.dataset.status = 'pass';

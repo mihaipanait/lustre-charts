@@ -29,7 +29,7 @@ export class Tooltip {
   /** @param {{x: number, y: number} | null} pos */
   move(pos) {
     if (!this.visible || !pos) return;
-    const { w, h } = this.chart._size;
+    const { w } = this.chart._size;
     const r = this.node.getBoundingClientRect();
     // keep inside the container
     const x = Math.min(Math.max(pos.x, r.width / 2 + 6), w - r.width / 2 - 6);

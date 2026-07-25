@@ -3,6 +3,8 @@ node_modules/
 
 # Build output (library ships as source ESM; dist only if you add a bundler)
 dist/
+playwright-report/
+test-results/
 
 # Editor / OS noise
 .DS_Store
