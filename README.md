@@ -8,6 +8,7 @@
 This library brings those finishes to your data.*
 
 [![live demo](https://img.shields.io/badge/%E2%96%B6%20live%20demo-mihaipanait.github.io-ff4081)](https://mihaipanait.github.io/lustre-charts/)
+[![CI](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml/badge.svg)](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-lustre--charts-cb3837?logo=npm)](https://www.npmjs.com/package/lustre-charts)
 [![license](https://img.shields.io/badge/license-MIT-7c4dff)](LICENSE)
 [![three.js](https://img.shields.io/badge/three.js-%E2%89%A5r167-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)

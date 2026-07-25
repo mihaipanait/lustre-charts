@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-07-25
+
+### Added
+
+- Add regression coverage for runtime option invalidation and DPR resolution.
+- Add continuous-integration and release gates for tests, syntax, package
+  contents, and package metadata.
+
+### Changed
+
+- Apply backgrounds, camera controls, DPR, responsive observation, interaction
+  listeners, labels, legends, and accessibility labels correctly at runtime.
+- Reframe responsive charts using both horizontal and vertical field of view,
+  keep pie callouts inside narrow viewports, and preserve a user-orbited
+  viewpoint unless camera framing is explicitly changed.
+- Document `quality.antialias` as constructor-only because it is fixed when the
+  WebGL context is created.
+- Improve the demo's tab semantics, pressed states, keyboard navigation, focus
+  indicators, live status announcements, and reduced-motion behavior.
+
 ## [0.1.2] — 2026-07-25
 
 ### Fixed

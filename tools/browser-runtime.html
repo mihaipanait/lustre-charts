@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lustre browser runtime regression</title>
+  <style>
+    body { margin: 20px; font: 14px system-ui, sans-serif; background: #090d18; color: #eef3ff; }
+    #chart { width: 720px; height: 420px; }
+    #results { white-space: pre-wrap; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body data-status="running">
+  <h1>Lustre browser runtime regression</h1>
+  <div id="chart"></div>
+  <pre id="results" role="status">Running…</pre>
+  <script type="module" src="./browser-runtime.js"></script>
+</body>
+</html>

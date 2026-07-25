@@ -95,18 +95,29 @@ export class LabelOverlay {
       return;
     }
     const o = this.chart.options.labels;
-    const ex = ax + dx * o.offset;
+    let ex = ax + dx * o.offset;
     const ey = ay + dy * o.offset;
     const side = dx >= 0 ? 1 : -1;
     const tailLen = 16;
-    const tx = ex + side * tailLen;
+    let tx = ex + side * tailLen;
+
+    if (n.text.textContent !== textContent) n.text.textContent = textContent;
+    const textGap = o.dot ? 15 : 6;
+    const textWidth = n.text.getComputedTextLength();
+    const edge = 8;
+    if (side > 0) {
+      tx = Math.min(tx, this.chart._size.w - edge - textWidth - textGap);
+      ex = Math.min(ex, tx - 8);
+    } else {
+      tx = Math.max(tx, edge + textWidth + textGap);
+      ex = Math.max(ex, tx + 8);
+    }
 
     n.g.setAttribute('opacity', opacity.toFixed(3));
     n.path.setAttribute('d', `M ${ax.toFixed(1)} ${ay.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)} L ${tx.toFixed(1)} ${ey.toFixed(1)}`);
     n.dot.setAttribute('cx', (tx + side * 7).toFixed(1));
     n.dot.setAttribute('cy', ey.toFixed(1));
-    if (n.text.textContent !== textContent) n.text.textContent = textContent;
-    n.text.setAttribute('x', (tx + side * (o.dot ? 15 : 6)).toFixed(1));
+    n.text.setAttribute('x', (tx + side * textGap).toFixed(1));
     n.text.setAttribute('y', ey.toFixed(1));
     n.text.setAttribute('text-anchor', side > 0 ? 'start' : 'end');
   }

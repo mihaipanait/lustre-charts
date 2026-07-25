@@ -10,13 +10,15 @@ import { LustreChart, LustrePalettes, MATERIAL_PRESETS, VERSION } from 'lustre-c
 /* State                                                                */
 /* ------------------------------------------------------------------ */
 
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const state = {
   // 'pie' covers donuts too — the Inner radius slider is the only difference
   type: 'pie',
   theme: 'dark',
   material: 'glossy',
   palette: 'aurora',
-  entrance: 'auto',
+  entrance: prefersReducedMotion ? 'none' : 'auto',
   autoRotate: false,
   labels: true,
   legend: true,
@@ -111,25 +113,57 @@ function patch(options) {
 const $ = (id) => document.getElementById(id);
 
 /* Chart type -------------------------------------------------------- */
-$('typeSeg').addEventListener('click', (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
+function activateChartType(btn) {
   state.type = btn.dataset.type;
-  for (const b of $('typeSeg').children) b.classList.toggle('active', b === btn);
-  $('pieControls').classList.toggle('hidden', state.type === 'bar');
-  $('barControls').classList.toggle('hidden', state.type !== 'bar');
+  for (const tab of $('typeSeg').querySelectorAll('[role="tab"]')) {
+    const active = tab === btn;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  }
+  const pieHidden = state.type === 'bar';
+  $('pieControls').hidden = pieHidden;
+  $('pieControls').classList.toggle('hidden', pieHidden);
+  $('barControls').hidden = !pieHidden;
+  $('barControls').classList.toggle('hidden', !pieHidden);
   recreate();
+}
+
+$('typeSeg').addEventListener('click', (e) => {
+  const btn = e.target.closest('[role="tab"]');
+  if (btn) activateChartType(btn);
+});
+
+$('typeSeg').addEventListener('keydown', (e) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const tabs = [...$('typeSeg').querySelectorAll('[role="tab"]')];
+  const current = tabs.indexOf(e.target);
+  if (current < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home'
+    ? 0
+    : e.key === 'End'
+      ? tabs.length - 1
+      : (current + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  tabs[next].focus();
+  activateChartType(tabs[next]);
 });
 
 /* Material chips ----------------------------------------------------- */
 const materialGrid = $('materialGrid');
 for (const preset of MATERIAL_PRESETS) {
   const chip = document.createElement('button');
+  chip.type = 'button';
   chip.className = 'chip' + (preset === state.material ? ' active' : '');
+  chip.setAttribute('aria-pressed', String(preset === state.material));
   chip.innerHTML = `<span class="swatch swatch-${preset}"></span>${preset}`;
   chip.addEventListener('click', () => {
     state.material = preset;
-    for (const c of materialGrid.children) c.classList.toggle('active', c === chip);
+    for (const c of materialGrid.children) {
+      const active = c === chip;
+      c.classList.toggle('active', active);
+      c.setAttribute('aria-pressed', String(active));
+    }
     patch({ material: state.material });
   });
   materialGrid.appendChild(chip);
@@ -139,22 +173,36 @@ for (const preset of MATERIAL_PRESETS) {
 const paletteList = $('paletteList');
 for (const [name, colors] of Object.entries(LustrePalettes)) {
   const row = document.createElement('button');
+  row.type = 'button';
   row.className = 'palette-row' + (name === state.palette ? ' active' : '');
+  row.setAttribute('aria-pressed', String(name === state.palette));
   const dots = colors.slice(0, 6).map((c) => `<i style="background:${c};color:${c}"></i>`).join('');
   row.innerHTML = `<span class="palette-dots">${dots}</span><span>${name}</span>`;
   row.addEventListener('click', () => {
     state.palette = name;
-    for (const r of paletteList.children) r.classList.toggle('active', r === row);
+    for (const r of paletteList.children) {
+      const active = r === row;
+      r.classList.toggle('active', active);
+      r.setAttribute('aria-pressed', String(active));
+    }
     patch({ palette: state.palette });
   });
   paletteList.appendChild(row);
 }
 
 /* Theme --------------------------------------------------------------- */
-$('themeToggle').addEventListener('click', () => {
+const themeToggle = $('themeToggle');
+function syncThemeToggle() {
+  const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+  themeToggle.setAttribute('aria-pressed', String(state.theme === 'light'));
+  themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
+}
+
+themeToggle.addEventListener('click', () => {
   state.theme = state.theme === 'dark' ? 'light' : 'dark';
   document.body.dataset.theme = state.theme;
   chart.setTheme(state.theme);
+  syncThemeToggle();
   renderCode();
 });
 
@@ -219,8 +267,6 @@ $('t-rotate').addEventListener('change', (e) => {
 $('t-labels').addEventListener('change', (e) => {
   state.labels = e.target.checked;
   patch({ labels: { show: state.labels } });
-  if (state.type !== 'bar') chart._syncLabels?.();
-  chart.requestRender();
 });
 $('t-legend').addEventListener('change', (e) => {
   state.legend = e.target.checked;
@@ -337,4 +383,6 @@ function toast(msg) {
 }
 
 $('version').textContent = `v${VERSION}`;
+$('entranceSelect').value = state.entrance;
+syncThemeToggle();
 recreate();

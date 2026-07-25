@@ -15,7 +15,8 @@ import { BaseChart } from '../core/BaseChart.js';
 import { createTooltipContent } from '../overlay/Tooltip.js';
 import { createItemMaterial } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
-import { deepMerge, niceNumber, formatCompact, svgEl } from '../core/utils.js';
+import { optionPatchNeedsRebuild } from '../core/runtimeOptions.js';
+import { niceNumber, formatCompact, svgEl } from '../core/utils.js';
 import { canRetargetBarData, normalizeBarData } from './barData.js';
 
 export class BarChart extends BaseChart {
@@ -29,7 +30,7 @@ export class BarChart extends BaseChart {
     this._entranceProgress = 1;
     this._axisNodes = null;
     this.setData(config.data, false);
-    this.frameCamera(this.boundsRadius, new THREE.Vector3(0, this._layoutInfo.maxHeight * 0.32, 0));
+    this.frameChart();
     this.decorations.configure({ floorY: 0, radius: this._layoutInfo.floorRadius, ringY: 0.01 });
     this.start();
     this.entrance();
@@ -548,19 +549,16 @@ export class BarChart extends BaseChart {
   /* ---------------------------------------------------------------- */
 
   applyOptions(patch) {
-    this.options = deepMerge(this.options, patch);
-    if (patch.theme !== undefined) this.setTheme(patch.theme);
-    if (patch.camera) {
-      this.controls.autoRotate = this.options.camera.autoRotate;
-      this.controls.autoRotateSpeed = this.options.camera.autoRotateSpeed;
-    }
-    const heavy = ['material', 'palette', 'bar', 'quality'];
-    if (heavy.some((k) => patch[k] !== undefined)) this.rebuild();
-    if (patch.legend) this._syncLegend();
+    const { needsCameraFrame } = this._applyBaseOptions(patch);
+    const needsRebuild = optionPatchNeedsRebuild(patch, 'bar');
+    if (needsRebuild) this.rebuild();
+    if (patch.labels && !needsRebuild) this._buildAxis();
+    if (patch.legend && !needsRebuild) this._syncLegend();
     if (patch.effects) {
       this.decorations.configure({ floorY: 0, radius: this._layoutInfo.floorRadius, ringY: 0.01 });
       this.resolveBloom(this.items.some((it) => it.spec?.wantsBloom));
     }
+    if (needsCameraFrame) this.frameChart(true);
     this.requestRender();
   }
 
@@ -570,18 +568,21 @@ export class BarChart extends BaseChart {
     this._snapFinal();
     this._syncLegend();
     this.decorations.configure({ floorY: 0, radius: this._layoutInfo.floorRadius, ringY: 0.01 });
-    this.frameCameraIfAuto(this.boundsRadius, new THREE.Vector3(0, this._layoutInfo.maxHeight * 0.32, 0));
+    this.frameChartIfAuto();
   }
 
   onThemeChanged() {
     this.rebuild();
-    this._themeAxis();
   }
 
   get boundsRadius() {
     const L = this._layoutInfo;
     if (!L) return 4;
     return Math.max(L.totalW, L.totalD, L.maxHeight * 1.45) * 0.72;
+  }
+
+  getCameraTarget() {
+    return new THREE.Vector3(0, this._layoutInfo?.maxHeight * 0.32 || 0, 0);
   }
 
   _summary() {

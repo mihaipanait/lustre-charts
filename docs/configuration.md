@@ -8,6 +8,24 @@ Everything below goes in the `options` object and is deep-merged over the defaul
 new LustreChart(el, { type, data, options: { /* this document */ } });
 ```
 
+## Runtime option behavior
+
+Most options can be changed after construction. Lightweight settings such as
+`background`, `camera`, `labels`, `legend`, `tooltip`, `animation`,
+`interaction`, `effects`, `quality.dpr`, `responsive`, and `ariaLabel` apply
+live. Changes to `theme`, `material`, `palette`, `pie`, or `bar` rebuild the
+affected chart meshes while preserving the chart instance and data.
+
+`quality.antialias` is constructor-only because WebGL fixes MSAA when its
+context is created. Pass it in the initial options; later changes are ignored
+with a console warning.
+
+Responsive framing uses both the horizontal and vertical field of view, so the
+chart remains visible in narrow containers. Once a user orbits manually,
+automatic resizing and geometry rebuilds preserve their viewpoint. An explicit
+camera framing patch (`fov`, `position`, `elevation`, `azimuth`, or `zoom`)
+intentionally replaces it.
+
 ## Top level
 
 | Option | Default | Description |
@@ -37,8 +55,9 @@ new LustreChart(el, { type, data, options: { /* this document */ } });
 | `controls.minDistanceFactor` / `maxDistanceFactor` | `0.5` / `3.5` | Zoom limits as multiples of the framed distance. |
 | `controls.damping` | `0.08` | Inertia of the orbit controls. |
 
-> Once the user orbits manually, option changes stop re-framing the camera —
-> their viewpoint wins.
+> Once the user orbits manually, automatic resizes and geometry rebuilds stop
+> re-framing the camera. Explicit framing options intentionally replace the
+> current viewpoint.
 
 ## `pie` (used by `type: 'pie'` and `'donut'`)
 
@@ -136,7 +155,7 @@ new LustreChart(el, { type, data, options: { /* this document */ } });
 | Option | Default | Description |
 |---|---|---|
 | `dpr` | `'auto'` | `'auto'` = `min(devicePixelRatio, 2)`, or a number. |
-| `antialias` | `true` | MSAA on the WebGL context. |
+| `antialias` | `true` | MSAA on the WebGL context. Constructor-only. |
 
 ## Per-item overrides (pie data)
 

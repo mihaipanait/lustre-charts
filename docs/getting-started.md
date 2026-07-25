@@ -117,6 +117,11 @@ chart.resize()                    // manual resize (automatic by default)
 chart.destroy()                   // dispose GPU resources, DOM, observers
 ```
 
+Most option patches apply immediately; mesh/material options rebuild the chart
+in place. `quality.antialias` is the exception: set it during construction
+because WebGL cannot change MSAA on an existing context. See
+[runtime option behavior](configuration.md#runtime-option-behavior).
+
 ## Next steps
 
 - Skim the [configuration reference](configuration.md) — everything is an option.

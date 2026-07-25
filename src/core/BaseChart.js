@@ -25,6 +25,7 @@ import { TweenGroup } from './Tween.js';
 import { resolveTheme } from './themes.js';
 import { deepMerge, clamp, cssRGBA, disposeObject3D, el } from './utils.js';
 import { DEFAULT_OPTIONS } from './defaults.js';
+import { cameraPatchNeedsFrame, resolveDpr } from './runtimeOptions.js';
 import { Tooltip } from '../overlay/Tooltip.js';
 import { Legend } from '../overlay/Legend.js';
 import { LabelOverlay } from '../overlay/LabelOverlay.js';
@@ -128,12 +129,13 @@ export class BaseChart {
 
   _buildRenderer() {
     const q = this.options.quality;
+    this._rendererAntialias = !!q.antialias;
     this.renderer = new THREE.WebGLRenderer({
-      antialias: q.antialias,
+      antialias: this._rendererAntialias,
       alpha: true,
       powerPreference: 'high-performance',
     });
-    this._dpr = q.dpr === 'auto' ? Math.min(window.devicePixelRatio || 1, 2) : q.dpr;
+    this._dpr = resolveDpr(q.dpr, window.devicePixelRatio);
     this.renderer.setPixelRatio(this._dpr);
     this.renderer.setSize(this._size.w, this._size.h);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -207,6 +209,7 @@ export class BaseChart {
         -((e.clientY - rect.top) / rect.height) * 2 + 1
       );
       this._pointerPx = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      this._pointerEvent = e;
       this._pickPending = true;
     };
     this._onPointerDown = (e) => {
@@ -228,22 +231,43 @@ export class BaseChart {
         this.options.interaction.onSelect?.([...this.selection].map((i) => this.getItem(i)));
       }
     };
-    this._onPointerLeave = () => {
+    this._onPointerLeave = (e) => {
+      this._pointer.set(2, 2);
+      this._pointerPx = null;
+      this._pointerEvent = e;
+      this._applyHover(null, e);
+    };
+
+    this._interactionBound = false;
+    this._setInteractionEvents(this.options.interaction.enabled);
+    this._syncResponsiveObserver();
+  }
+
+  _setInteractionEvents(enabled, clearHover = true) {
+    const shouldBind = !!enabled;
+    if (shouldBind === this._interactionBound) return;
+    const method = shouldBind ? 'addEventListener' : 'removeEventListener';
+    this.canvas[method]('pointermove', this._onPointerMove);
+    this.canvas[method]('pointerdown', this._onPointerDown);
+    this.canvas[method]('pointerup', this._onPointerUp);
+    this.canvas[method]('pointerleave', this._onPointerLeave);
+    this._interactionBound = shouldBind;
+    if (!shouldBind && clearHover) {
+      this._pickPending = false;
       this._pointer.set(2, 2);
       this._pointerPx = null;
       this._applyHover(null);
-    };
-
-    if (this.options.interaction.enabled) {
-      this.canvas.addEventListener('pointermove', this._onPointerMove);
-      this.canvas.addEventListener('pointerdown', this._onPointerDown);
-      this.canvas.addEventListener('pointerup', this._onPointerUp);
-      this.canvas.addEventListener('pointerleave', this._onPointerLeave);
     }
+  }
 
-    if (this.options.responsive && typeof ResizeObserver !== 'undefined') {
+  _syncResponsiveObserver() {
+    const shouldObserve = this.options.responsive && typeof ResizeObserver !== 'undefined';
+    if (shouldObserve && !this._ro) {
       this._ro = new ResizeObserver(() => this.resize());
       this._ro.observe(this.container);
+    } else if (!shouldObserve && this._ro) {
+      this._ro.disconnect();
+      this._ro = null;
     }
   }
 
@@ -268,12 +292,16 @@ export class BaseChart {
    */
   setTheme(theme) {
     this.options.theme = theme;
+    this._applyResolvedTheme(theme);
+    this.onThemeChanged?.();
+    this.requestRender();
+  }
+
+  _applyResolvedTheme(theme) {
     this.theme = resolveTheme(theme);
     if (this.theme.kind !== this._envKind) this._buildEnvironment(this.theme.kind);
     this.applyTheme(this.theme);
-    this.onThemeChanged?.();
     this.decorations.refresh();
-    this.requestRender();
   }
 
   /** @param {import('./themes.js').LustreTheme} theme */
@@ -330,11 +358,85 @@ export class BaseChart {
       this.scene.background = null;
       this.renderer.setClearAlpha(0);
     } else if (typeof bg === 'string') {
+      this.renderer.setClearAlpha(1);
       this.scene.background = new THREE.Color(bg);
     } else if (bg && typeof bg === 'object') {
+      this.renderer.setClearAlpha(1);
       this._bgTex = makeGradientTexture(bg.inner, bg.outer);
       this.scene.background = this._bgTex;
     }
+  }
+
+  /**
+   * Merge and apply options owned by the shared chart rig.
+   * Subclasses use the returned invalidation hints to rebuild chart content
+   * exactly once when needed.
+   */
+  _applyBaseOptions(patch) {
+    this.options = deepMerge(this.options, patch);
+
+    if (patch.quality?.antialias !== undefined && !!patch.quality.antialias !== this._rendererAntialias) {
+      this.options.quality.antialias = this._rendererAntialias;
+      console.warn(
+        '[lustre-charts] quality.antialias is constructor-only because changing it requires a new WebGL context'
+      );
+    }
+
+    const themeChanged = patch.theme !== undefined;
+    if (themeChanged) {
+      this._applyResolvedTheme(this.options.theme);
+    } else {
+      if (patch.background !== undefined) this._applyBackground();
+      if (patch.labels) {
+        this.root.style.setProperty('--lustre-font', this.options.labels.fontFamily);
+        this.labelOverlay.onTheme();
+      }
+    }
+
+    if (patch.quality?.dpr !== undefined) this._syncDpr();
+    if (patch.responsive !== undefined) this._syncResponsiveObserver();
+    if (patch.interaction?.enabled !== undefined) {
+      this._setInteractionEvents(this.options.interaction.enabled);
+    }
+
+    let needsCameraFrame = false;
+    if (patch.camera) {
+      this._syncCameraOptions();
+      needsCameraFrame = cameraPatchNeedsFrame(patch.camera);
+    }
+    if (patch.ariaLabel !== undefined) this.setAriaLabel(this._summary?.() || '');
+
+    this.requestRender();
+    return { themeChanged, needsCameraFrame };
+  }
+
+  _syncDpr() {
+    this._dpr = resolveDpr(this.options.quality.dpr, window.devicePixelRatio);
+    const { w, h } = this._size;
+    this.renderer.setPixelRatio(this._dpr);
+    this.renderer.setSize(w, h);
+    if (this.composer) {
+      this.composer.setPixelRatio(this._dpr);
+      this.composer.setSize(w, h);
+    }
+    for (const material of this._lineMaterials) {
+      material.resolution.set(w * this._dpr, h * this._dpr);
+    }
+  }
+
+  _syncCameraOptions() {
+    const cam = this.options.camera;
+    const controls = cam.controls;
+    this.camera.fov = cam.fov;
+    this.camera.updateProjectionMatrix();
+    this.controls.enabled = controls.enabled;
+    this.controls.enableZoom = controls.enableZoom;
+    this.controls.enablePan = controls.enablePan;
+    this.controls.dampingFactor = controls.damping;
+    this.controls.minPolarAngle = controls.minPolarAngle;
+    this.controls.maxPolarAngle = controls.maxPolarAngle;
+    this.controls.autoRotate = cam.autoRotate;
+    this.controls.autoRotateSpeed = cam.autoRotateSpeed;
   }
 
   /* ---------------------------------------------------------------- */
@@ -401,8 +503,10 @@ export class BaseChart {
     if (Array.isArray(cam.position)) {
       this.camera.position.set(...cam.position);
     } else {
-      const fovRad = (this.camera.fov * Math.PI) / 180;
-      const dist = ((radius * 1.12) / Math.tan(fovRad / 2)) * cam.zoom;
+      const verticalFov = (this.camera.fov * Math.PI) / 180;
+      const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.camera.aspect);
+      const fitFov = Math.min(verticalFov, horizontalFov);
+      const dist = ((radius * 1.12) / Math.tan(fitFov / 2)) * cam.zoom;
       const elev = (cam.elevation * Math.PI) / 180;
       const az = (cam.azimuth * Math.PI) / 180;
       const horiz = dist * Math.cos(elev);
@@ -411,10 +515,11 @@ export class BaseChart {
         target.y + dist * Math.sin(elev),
         target.z + horiz * Math.cos(az)
       );
-      const c = cam.controls;
-      this.controls.minDistance = dist * c.minDistanceFactor;
-      this.controls.maxDistance = dist * c.maxDistanceFactor;
     }
+    const distance = this.camera.position.distanceTo(target);
+    const c = cam.controls;
+    this.controls.minDistance = distance * c.minDistanceFactor;
+    this.controls.maxDistance = distance * c.maxDistanceFactor;
     this.camera.lookAt(target);
     this.controls.target.copy(target);
     this.controls.update();
@@ -430,6 +535,22 @@ export class BaseChart {
     this.frameCamera(radius, target);
   }
 
+  /** Chart-specific camera target; bar charts override this. */
+  getCameraTarget() {
+    return new THREE.Vector3(0, 0, 0);
+  }
+
+  /** Frame using the current chart bounds and target. */
+  frameChart(force = false) {
+    if (force) this._userOrbited = false;
+    this.frameCamera(this.boundsRadius, this.getCameraTarget());
+  }
+
+  frameChartIfAuto() {
+    if (this._userOrbited) return;
+    this.frameChart();
+  }
+
   /* ---------------------------------------------------------------- */
   /* Picking                                                           */
   /* ---------------------------------------------------------------- */
@@ -439,10 +560,10 @@ export class BaseChart {
     this._raycaster.setFromCamera(this._pointer, this.camera);
     const hits = this._raycaster.intersectObjects(this.pickables, false);
     const idx = hits.length ? hits[0].object.userData.itemIndex : null;
-    this._applyHover(idx);
+    this._applyHover(idx, this._pointerEvent);
   }
 
-  _applyHover(idx) {
+  _applyHover(idx, event = this._pointerEvent) {
     if (idx === this.hoveredIndex) {
       if (idx != null) this.tooltip.move(this._pointerPx);
       return;
@@ -455,7 +576,7 @@ export class BaseChart {
     } else {
       this.tooltip.hide();
     }
-    this.options.interaction.onHover?.(idx != null ? this.getItem(idx) : null);
+    this.options.interaction.onHover?.(idx != null ? this.getItem(idx) : null, event);
     this.requestRender();
   }
 
@@ -520,6 +641,7 @@ export class BaseChart {
     this.composer?.setSize(w, h);
     for (const m of this._lineMaterials) m.resolution.set(w * this._dpr, h * this._dpr);
     this.labelOverlay.resize(w, h);
+    this.frameChartIfAuto();
     this.requestRender();
   }
 
@@ -540,10 +662,8 @@ export class BaseChart {
     this.destroyed = true;
     cancelAnimationFrame(this._raf);
     this._ro?.disconnect();
-    this.canvas.removeEventListener('pointermove', this._onPointerMove);
-    this.canvas.removeEventListener('pointerdown', this._onPointerDown);
-    this.canvas.removeEventListener('pointerup', this._onPointerUp);
-    this.canvas.removeEventListener('pointerleave', this._onPointerLeave);
+    this._ro = null;
+    this._setInteractionEvents(false, false);
     this.tweens.kill();
     this.controls.dispose();
     disposeObject3D(this.scene);

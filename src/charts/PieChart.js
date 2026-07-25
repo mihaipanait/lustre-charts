@@ -15,7 +15,8 @@ import { createTooltipContent } from '../overlay/Tooltip.js';
 import { buildProfile, buildSliceGeometry, buildSliceOutlinePositions } from '../geometry/sliceGeometry.js';
 import { createItemMaterial, autoProfileFor, materialWantsBloom } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
-import { deepMerge, clamp } from '../core/utils.js';
+import { optionPatchNeedsRebuild } from '../core/runtimeOptions.js';
+import { clamp } from '../core/utils.js';
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -31,7 +32,7 @@ export class PieChart extends BaseChart {
     this._profile = null;
     this._entranceProgress = 1;
     this.setData(config.data, false);
-    this.frameCamera(this.boundsRadius);
+    this.frameChart();
     this.decorations.configure({
       floorY: -this.options.pie.height / 2 - 0.02,
       radius: this.options.pie.radius,
@@ -595,18 +596,14 @@ export class PieChart extends BaseChart {
    * @param {object} patch partial options
    */
   applyOptions(patch) {
-    this.options = deepMerge(this.options, patch);
-    if (patch.theme !== undefined) this.setTheme(patch.theme);
-
-    const heavy = ['material', 'palette', 'pie', 'quality'];
-    const needsRebuild = heavy.some((k) => patch[k] !== undefined);
-    if (patch.camera) {
-      this.controls.autoRotate = this.options.camera.autoRotate;
-      this.controls.autoRotateSpeed = this.options.camera.autoRotateSpeed;
-    }
+    const { needsCameraFrame } = this._applyBaseOptions(patch);
+    const needsRebuild = optionPatchNeedsRebuild(patch, 'pie');
     if (needsRebuild) this.rebuild();
-    if (patch.labels) this._syncLabels();
-    if (patch.legend) this._syncLegend();
+    if (patch.labels && !needsRebuild) {
+      this._syncLabels();
+      this.frameChartIfAuto();
+    }
+    if (patch.legend && !needsRebuild) this._syncLegend();
     if (patch.effects) {
       this.decorations.configure({
         floorY: -this.options.pie.height / 2 - 0.02,
@@ -615,6 +612,7 @@ export class PieChart extends BaseChart {
       });
       this.resolveBloom(this.items.some((it) => it.spec?.wantsBloom));
     }
+    if (needsCameraFrame) this.frameChart(true);
     this.requestRender();
   }
 
@@ -641,7 +639,7 @@ export class PieChart extends BaseChart {
       radius: this.options.pie.radius,
       ringY: 0,
     });
-    this.frameCameraIfAuto(this.boundsRadius);
+    this.frameChartIfAuto();
   }
 
   onThemeChanged() {
@@ -651,7 +649,13 @@ export class PieChart extends BaseChart {
 
   get boundsRadius() {
     const p = this.options.pie;
-    return p.radius * 1.3 + p.explode + this.options.interaction.explodeDistance * 0.5;
+    const aspect = this.camera?.aspect ?? 1;
+    const narrowLabelMargin = this.options.labels.show
+      ? clamp((1 - aspect) * 0.9, 0, 0.3)
+      : 0;
+    return p.radius * (1.3 + narrowLabelMargin) +
+      p.explode +
+      this.options.interaction.explodeDistance * 0.5;
   }
 
   _summary() {
