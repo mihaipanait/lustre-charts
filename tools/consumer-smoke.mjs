@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,13 +32,19 @@ function run(command, args, cwd) {
 }
 
 try {
-  const packResult = JSON.parse(run('npm', [
+  run('npm', [
     'pack',
-    '--json',
     '--pack-destination',
     scratch,
-  ], root));
-  const tarball = resolve(scratch, packResult[0].filename);
+  ], root);
+  const packedFiles = (await readdir(scratch))
+    .filter((filename) => filename.endsWith('.tgz'));
+  if (packedFiles.length !== 1) {
+    throw new Error(
+      `expected npm pack to create one tarball, found ${packedFiles.length}`
+    );
+  }
+  const tarball = resolve(scratch, packedFiles[0]);
 
   await writeFile(join(scratch, 'package.json'), JSON.stringify({
     name: 'lustre-consumer-smoke',
