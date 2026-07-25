@@ -64,6 +64,23 @@ map, so just edit and refresh.
 4. Check the browser console — zero errors, zero warnings.
 5. Update `docs/` and `CHANGELOG.md` if you changed public behavior.
 
+## Releasing (maintainers)
+
+Releases go through a version pull request so the protected `main` branch and
+its required checks remain the source of truth:
+
+1. Move the `Unreleased` changelog entries into a dated version section.
+2. On a release branch, run `npm version patch --no-git-tag-version` (or
+   `minor`/`major`), then commit and open a pull request.
+3. Merge the pull request after all required checks pass.
+4. Update local `main`, create an annotated `vX.Y.Z` tag on the merge commit,
+   and push that tag.
+
+The tag starts `.github/workflows/release.yml`. It repeats the complete quality
+and browser gates, publishes to npm with trusted publishing, and creates the
+matching GitHub Release from that version's `CHANGELOG.md` section. Re-running
+the workflow is safe if npm publication or the GitHub Release already exists.
+
 ## Reporting bugs
 
 Please include: browser + GPU, `three` version, a minimal config object that

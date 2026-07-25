@@ -1,5 +1,6 @@
-# Publish lustre-charts to npm when a version tag is pushed:
-#   npm version minor && git push --follow-tags
+# Publish lustre-charts to npm when a version tag is pushed. After a version
+# PR is merged, tag that main commit and push the tag:
+#   git tag -a v0.2.0 -m v0.2.0 && git push origin v0.2.0
 #
 # Uses npm "trusted publishing" (OIDC) — no npm token is stored in this
 # repo. One-time setup on npmjs.com (after the package's first manual
@@ -14,7 +15,7 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write # Create or update the matching GitHub Release.
   id-token: write # OIDC token that npm exchanges for publish credentials
 
 jobs:
@@ -57,4 +58,27 @@ jobs:
           fi
 
       - name: Publish
-        run: npm publish
+        run: |
+          PACKAGE="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+            echo "$PACKAGE@$VERSION is already published; skipping npm publish."
+          else
+            npm publish
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node tools/release-notes.mjs > release-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md
+          fi
