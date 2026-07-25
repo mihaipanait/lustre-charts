@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-07-25
+
+### Fixed
+
+- Rebuild bar charts when same-size data changes labels, colors, series names,
+  or material configuration; keep the animated fast path for value-only updates.
+- Generate pie chart accessibility summaries after slice percentages are laid out.
+- Build default tooltip content with DOM APIs so data labels and colors are not
+  interpolated into HTML.
+
+### Security
+
+- Restrict the development screenshot endpoint to safe filenames, cap request
+  bodies, keep writes inside `tools/`, and bind the server to loopback.
+
 ## [0.1.1] — 2026-07-20
 
 ### Changed

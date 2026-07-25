@@ -11,8 +11,10 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_SHOT_BODY_BYTES, screenshotPath } from './dev-server-utils.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const toolsDir = join(root, 'tools');
 const port = Number(process.argv[2] || 5173);
 
 const MIME = {
@@ -32,22 +34,37 @@ const MIME = {
 
 createServer(async (req, res) => {
   try {
-    if (req.method === 'POST' && req.url.startsWith('/__shot')) {
+    const requestUrl = new URL(req.url, 'http://x');
+    if (req.method === 'POST' && requestUrl.pathname === '/__shot') {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      let bytes = 0;
+      for await (const chunk of req) {
+        bytes += chunk.length;
+        if (bytes > MAX_SHOT_BODY_BYTES) {
+          res.writeHead(413, { 'content-type': 'text/plain' }).end('screenshot too large');
+          return;
+        }
+        body += chunk;
+      }
       const m = body.match(/^data:image\/(png|jpeg);base64,(.+)$/s);
       if (!m) {
         res.writeHead(400).end('bad data url');
         return;
       }
-      const name = new URL(req.url, 'http://x').searchParams.get('name') || 'shot';
-      const file = join(root, 'tools', `${name}.${m[1] === 'png' ? 'png' : 'jpg'}`);
+      const name = requestUrl.searchParams.get('name') || 'shot';
+      let file;
+      try {
+        file = screenshotPath(toolsDir, name, m[1] === 'png' ? 'png' : 'jpg');
+      } catch {
+        res.writeHead(400, { 'content-type': 'text/plain' }).end('invalid screenshot name');
+        return;
+      }
       await writeFile(file, Buffer.from(m[2], 'base64'));
       res.writeHead(200, { 'content-type': 'text/plain' }).end(file);
       return;
     }
 
-    let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    let path = decodeURIComponent(requestUrl.pathname);
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(root, path));
     if (!file.startsWith(normalize(root))) {
@@ -63,4 +80,4 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404).end('not found');
   }
-}).listen(port, () => console.log(`lustre dev server → http://localhost:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`lustre dev server → http://localhost:${port}`));

@@ -11,6 +11,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 import { BaseChart } from '../core/BaseChart.js';
+import { createTooltipContent } from '../overlay/Tooltip.js';
 import { buildProfile, buildSliceGeometry, buildSliceOutlinePositions } from '../geometry/sliceGeometry.js';
 import { createItemMaterial, autoProfileFor, materialWantsBloom } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
@@ -122,6 +123,7 @@ export class PieChart extends BaseChart {
       for (const it of this.items) it.anim = { ...it.target };
       this._flushAll();
     }
+    this.setAriaLabel(this._summary());
     this._syncLegend();
     this._syncLabels();
     this.requestRender();
@@ -185,7 +187,6 @@ export class PieChart extends BaseChart {
     }
 
     this.resolveBloom(anyBloom);
-    this.setAriaLabel(this._summary());
   }
 
   _disposeItems(items) {
@@ -502,11 +503,12 @@ export class PieChart extends BaseChart {
     if (!item) return '';
     const custom = this.options.tooltip.format;
     if (custom) return custom(item, this);
-    return (
-      `<div class="lustre-tt-title"><span class="lustre-tt-dot" style="background:${item.color};color:${item.color}"></span>${esc(item.label)}</div>` +
-      `<div class="lustre-tt-value">${formatValue(item.value)}</div>` +
-      `<div class="lustre-tt-sub">${item.percent.toFixed(1)}% of total</div>`
-    );
+    return createTooltipContent({
+      title: item.label,
+      color: item.color,
+      value: formatValue(item.value),
+      sub: `${item.percent.toFixed(1)}% of total`,
+    });
   }
 
   /* ---------------------------------------------------------------- */
@@ -631,6 +633,7 @@ export class PieChart extends BaseChart {
     this._layout();
     for (const it of items) it.anim = { ...it.target };
     this._flushAll();
+    this.setAriaLabel(this._summary());
     this._syncLegend();
     this._syncLabels();
     this.decorations.configure({
@@ -676,10 +679,6 @@ function mergeMaterialCfg(globalCfg, itemCfg) {
   if (typeof itemCfg === 'string') return itemCfg;
   const base = typeof globalCfg === 'string' ? { preset: globalCfg } : globalCfg || {};
   return { ...base, ...itemCfg };
-}
-
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function formatValue(v) {

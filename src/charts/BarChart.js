@@ -12,9 +12,11 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 import { BaseChart } from '../core/BaseChart.js';
+import { createTooltipContent } from '../overlay/Tooltip.js';
 import { createItemMaterial } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
 import { deepMerge, niceNumber, formatCompact, svgEl } from '../core/utils.js';
+import { canRetargetBarData, normalizeBarData } from './barData.js';
 
 export class BarChart extends BaseChart {
   constructor(container, config) {
@@ -43,36 +45,15 @@ export class BarChart extends BaseChart {
    *  `[{ label, value, color? }]` or `[numbers]` → single series
    */
   _normalize(data) {
-    let categories, series;
-    if (Array.isArray(data)) {
-      const rows = data.map((d, i) =>
-        typeof d === 'number' ? { label: `Item ${i + 1}`, value: d } : { label: d.label ?? `Item ${i + 1}`, ...d }
-      );
-      categories = rows.map((r) => r.label);
-      series = [{ name: 'Series 1', values: rows.map((r) => Math.max(0, Number(r.value) || 0)), colors: rows.map((r) => r.color) }];
-    } else if (data && Array.isArray(data.categories) && Array.isArray(data.series)) {
-      categories = [...data.categories];
-      series = data.series.map((s, i) => ({
-        name: s.name ?? `Series ${i + 1}`,
-        values: categories.map((_, c) => Math.max(0, Number(s.values?.[c]) || 0)),
-        color: s.color,
-        material: s.material,
-      }));
-    } else {
-      throw new Error('[lustre-charts] bar data must be an array or { categories, series }');
-    }
-    return { categories, series };
+    return normalizeBarData(data);
   }
 
   setData(data, animate = this.options.animation.animateUpdates) {
     const prev = this._data;
     this._data = this._normalize(data);
-    const sameShape =
-      prev &&
-      prev.categories.length === this._data.categories.length &&
-      prev.series.length === this._data.series.length;
+    const canRetarget = canRetargetBarData(prev, this._data);
 
-    if (sameShape && animate && this._entranceProgress >= 1) {
+    if (canRetarget && animate && this._entranceProgress >= 1) {
       this._retargetHeights();
     } else {
       this._teardownBars();
@@ -224,6 +205,8 @@ export class BarChart extends BaseChart {
         if (!item) return;
         const oldH = item.height * item.mesh.scale.y;
         const newH = Math.max(0.02, value * L.unit);
+        item.label = this._data.categories[ci];
+        item.seriesName = s.name;
         item.value = value;
         item.height = newH;
 
@@ -491,11 +474,11 @@ export class BarChart extends BaseChart {
     const custom = this.options.tooltip.format;
     if (custom) return custom(item, this);
     const multi = this._data.series.length > 1;
-    const title = multi ? `${esc(item.series)} · ${esc(item.label)}` : esc(item.label);
-    return (
-      `<div class="lustre-tt-title"><span class="lustre-tt-dot" style="background:${item.color};color:${item.color}"></span>${title}</div>` +
-      `<div class="lustre-tt-value">${Number(item.value).toLocaleString()}</div>`
-    );
+    return createTooltipContent({
+      title: multi ? `${item.series} · ${item.label}` : item.label,
+      color: item.color,
+      value: Number(item.value).toLocaleString(),
+    });
   }
 
   /* ---------------------------------------------------------------- */
@@ -629,8 +612,4 @@ function mergeMaterialCfg(globalCfg, itemCfg) {
   if (typeof itemCfg === 'string') return itemCfg;
   const base = typeof globalCfg === 'string' ? { preset: globalCfg } : globalCfg || {};
   return { ...base, ...itemCfg };
-}
-
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
