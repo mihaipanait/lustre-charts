@@ -4,7 +4,7 @@ import type {
   MeshPhysicalMaterial,
 } from 'three';
 
-export type ChartType = 'pie' | 'donut' | 'bar';
+export type ChartType = 'pie' | 'donut' | 'radial' | 'bar';
 export type ThemeName = 'dark' | 'light';
 export type MaterialPreset = 'glossy' | 'glass' | 'metal' | 'neon' | 'hologram' | 'matte';
 export type PaletteName = 'aurora' | 'neon' | 'metal' | 'candy' | 'ocean' | 'sunset' | 'violet' | 'mono';
@@ -65,6 +65,21 @@ export type PieData =
       colors?: Array<string | undefined>;
     };
 
+export interface RadialDataItem {
+  label?: string;
+  value: number;
+  color?: string;
+  material?: MaterialOption;
+}
+
+export type RadialData =
+  | Array<number | RadialDataItem>
+  | {
+      labels?: string[];
+      values: number[];
+      colors?: Array<string | undefined>;
+    };
+
 export interface BarDataItem {
   label?: string;
   value: number;
@@ -87,7 +102,7 @@ export type BarData =
       series: BarSeries[];
     };
 
-export type ChartData = PieData | BarData;
+export type ChartData = PieData | RadialData | BarData;
 
 export interface ChartItem {
   index: number;
@@ -95,6 +110,7 @@ export interface ChartItem {
   value: number;
   color: string;
   percent?: number;
+  maxValue?: number;
   fraction?: number;
   series?: string;
   category?: string;
@@ -178,6 +194,24 @@ export interface PieOptions {
   profile?: ProfileOption;
   explode?: number;
   sort?: null | 'asc' | 'desc';
+}
+
+export interface RadialTrackOptions {
+  color?: 'auto' | string;
+  opacity?: number;
+}
+
+export interface RadialOptions {
+  radius?: number;
+  innerRadius?: number;
+  height?: number;
+  cornerRadius?: number;
+  ringGap?: number;
+  maxValue?: number;
+  startAngle?: number;
+  clockwise?: boolean;
+  profile?: ProfileOption;
+  track?: boolean | RadialTrackOptions;
 }
 
 export interface BarOptions {
@@ -266,6 +300,7 @@ export interface LustreOptions {
   material?: MaterialOption;
   camera?: CameraOptions;
   pie?: PieOptions;
+  radial?: RadialOptions;
   bar?: BarOptions;
   labels?: LabelOptions;
   legend?: LegendOptions;
@@ -309,6 +344,7 @@ export class BaseChart<TData extends ChartData = ChartData> {
 }
 
 export class PieChart extends BaseChart<PieData> {}
+export class RadialChart extends BaseChart<RadialData> {}
 export class BarChart extends BaseChart<BarData> {}
 
 type ChartConstructor = new (

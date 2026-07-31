@@ -12,6 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create or refresh a matching GitHub Release from `CHANGELOG.md` after each
   successful npm publication.
 
+## [0.2.0] — 2026-07-31
+
+### Added
+
+- Add 3D concentric radial charts through `type: 'radial'`, with one
+  independently normalized percentage ring per data item.
+- Add radial sweep, rise, and scale entrances; tweened value and visibility
+  updates; vertical hover/select lift; tooltips; legends; and accessible
+  percentage summaries.
+- Add collision-resolved SVG callouts anchored to each ring's progress edge,
+  optional recessed full-circle tracks, and repeated custom profile support.
+- Add radial chart configuration, TypeScript declarations, demo controls,
+  documentation, unit coverage, and Chromium lifecycle/mobile regressions.
+
 ## [0.1.4] — 2026-07-25
 
 ### Added

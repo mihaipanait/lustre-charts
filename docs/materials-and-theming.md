@@ -39,7 +39,7 @@ options: {
 }
 ```
 
-Per-item overrides work the same way inside pie data (`{ label, value, material: {...} }`).
+Per-item overrides work the same way inside pie and radial data (`{ label, value, material: {...} }`).
 
 ### A note on color fidelity
 

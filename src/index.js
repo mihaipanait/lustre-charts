@@ -21,6 +21,7 @@
  */
 
 import { PieChart } from './charts/PieChart.js';
+import { RadialChart } from './charts/RadialChart.js';
 import { BarChart } from './charts/BarChart.js';
 import { THEMES } from './core/themes.js';
 import { PALETTES } from './core/palettes.js';
@@ -29,12 +30,13 @@ import { Easings } from './core/Tween.js';
 import { DEFAULT_OPTIONS } from './core/defaults.js';
 
 /** Library version (kept in sync with package.json). */
-export const VERSION = '0.1.4';
+export const VERSION = '0.2.0';
 
 /** @type {Record<string, any>} */
 const REGISTRY = {
   pie: PieChart,
   donut: PieChart,
+  radial: RadialChart,
   bar: BarChart,
 };
 
@@ -43,7 +45,7 @@ const REGISTRY = {
  * returns the concrete chart instance for `type`.
  *
  * @param {HTMLElement | string} container element or CSS selector
- * @param {{ type?: 'pie' | 'donut' | 'bar', data: any, options?: object }} config
+ * @param {{ type?: 'pie' | 'donut' | 'radial' | 'bar', data: any, options?: object }} config
  */
 export class LustreChart {
   constructor(container, config = {}) {
@@ -70,7 +72,7 @@ export class LustreChart {
   }
 }
 
-export { PieChart, BarChart };
+export { PieChart, RadialChart, BarChart };
 export { BaseChart } from './core/BaseChart.js';
 export { THEMES as LustreThemes };
 export { PALETTES as LustrePalettes };

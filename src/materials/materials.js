@@ -249,7 +249,8 @@ function applyOverrides(spec, cfg) {
 
 /**
  * Which cross-section profile flatters a preset when the user didn't choose
- * one (`pie.profile: 'auto'`). Neon wants crisp edges for its rim lines.
+ * one (`pie.profile: 'auto'` / `radial.profile: 'auto'`). Neon wants crisp
+ * edges for its rim lines.
  * @param {string | object} material
  * @returns {string}
  */

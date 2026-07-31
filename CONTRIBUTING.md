@@ -38,7 +38,7 @@ map, so just edit and refresh.
 | `src/core/` | Base chart rig, tween engine, themes, palettes, utils |
 | `src/materials/` | Physically based material presets |
 | `src/geometry/` | Slice/profile revolve builder, outline builders |
-| `src/charts/` | `PieChart`, `BarChart` |
+| `src/charts/` | `PieChart`, `RadialChart`, `BarChart` |
 | `src/overlay/` | SVG callout labels, tooltip, legend (DOM) |
 | `src/fx/` | Bloom composer + scene decorations |
 | `demo/` | The playground page (also serves as visual regression bed) |

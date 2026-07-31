@@ -28,6 +28,7 @@ test('rebuilds only options that change chart meshes or materials', () => {
   assert.equal(optionPatchNeedsRebuild({ material: 'metal' }, 'pie'), true);
   assert.equal(optionPatchNeedsRebuild({ palette: 'ocean' }, 'pie'), true);
   assert.equal(optionPatchNeedsRebuild({ pie: { innerRadius: 1 } }, 'pie'), true);
+  assert.equal(optionPatchNeedsRebuild({ radial: { ringGap: 0.12 } }, 'radial'), true);
   assert.equal(optionPatchNeedsRebuild({ bar: { maxHeight: 4 } }, 'bar'), true);
   assert.equal(optionPatchNeedsRebuild({ quality: { dpr: 1 } }, 'pie'), false);
   assert.equal(optionPatchNeedsRebuild({ labels: { show: false } }, 'bar'), false);

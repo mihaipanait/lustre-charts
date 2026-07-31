@@ -110,6 +110,75 @@ async function run() {
   chart.destroy();
   assert(container.children.length === 0, 'pie destroy removes chart DOM');
 
+  const radial = new LustreChart(container, {
+    type: 'radial',
+    data: [
+      { label: 'Alpha ring', value: 72 },
+      { label: 'Beta ring', value: 73 },
+      { label: 'Gamma ring', value: 74 },
+      { label: 'Full ring', value: 100 },
+      { label: 'Clamped ring', value: 140 },
+    ],
+    options: {
+      animation: { entrance: 'none', updateDuration: 20 },
+      radial: { track: true },
+      responsive: false,
+    },
+  });
+  await nextFrame();
+  assert(radial.canvas.getAttribute('aria-label').includes('Full ring 100%'), 'radial ARIA summary includes independent percentages');
+  assert(radial.items[0].fraction === 0.72, 'radial values normalize independently');
+  assert(radial.items.at(-1).fraction === 1, 'radial values clamp visually at a complete ring');
+  assert(radial.items.every((item, index) => index === 0 || item.innerRadius > radial.items[index - 1].outerRadius), 'radial bands are concentric and non-overlapping');
+  assert(radial.items.every((item) => item.track?.visible), 'radial tracks render when enabled');
+  assert(contentFitsCamera(radial), 'radial rings fit the camera frustum');
+
+  const firstRadial = radial.items[0];
+  radial.toggleVisibility(0);
+  assert(firstRadial.mesh.visible, 'radial visibility changes collapse from the current arc');
+  await nextFrame();
+  await nextFrame();
+  assert(!firstRadial.mesh.visible && !firstRadial.track.visible, 'hidden radial rings and tracks finish collapsed');
+  radial.toggleVisibility(0);
+  await nextFrame();
+  await nextFrame();
+  assert(firstRadial.mesh.visible && firstRadial.track.visible, 'radial rings grow back into their preserved slot');
+
+  const radialLabels = [...radial.labelOverlay.nodes.values()]
+    .map(({ text }) => text.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+  const labelsOverlap = radialLabels.some((rect, index) =>
+    radialLabels.slice(index + 1).some((other) =>
+      rect.left < other.right && rect.right > other.left && rect.top < other.bottom && rect.bottom > other.top
+    )
+  );
+  assert(!labelsOverlap, 'clustered radial callouts do not overlap');
+
+  const radialMesh = radial.items[0].mesh;
+  radial.applyOptions({
+    radial: {
+      track: false,
+      clockwise: false,
+      profile: [
+        { x: 0, y: -1 },
+        { x: 1, y: -1 },
+        { x: 1.15, y: 0 },
+        { x: 1, y: 1 },
+        { x: 0, y: 1 },
+      ],
+    },
+  });
+  assert(radial.items[0].mesh !== radialMesh, 'radial geometry options rebuild meshes');
+  assert(radial.items.every((item) => item.track === null), 'radial tracks can be disabled live');
+  assert(radial.items.every((item) => item.profile.points.every((point) => Number.isFinite(point.x))), 'custom radial profiles repeat with finite geometry');
+  radial.setData([
+    { label: 'Alpha ring', value: 45 },
+    { label: 'Full ring', value: 100 },
+  ], false);
+  assert(radial.items[0].fraction === 0.45, 'radial data updates preserve independent percentages');
+  radial.destroy();
+  assert(container.children.length === 0, 'radial destroy removes chart DOM');
+
   const bars = new LustreChart(container, {
     type: 'bar',
     data: {

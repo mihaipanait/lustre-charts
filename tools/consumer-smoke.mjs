@@ -66,6 +66,7 @@ try {
     import {
       VERSION,
       LustreChart,
+      RadialChart,
       buildProfile,
       buildSliceGeometry,
     } from 'lustre-charts';
@@ -75,6 +76,9 @@ try {
     }
     if (typeof LustreChart !== 'function') {
       throw new Error('LustreChart export is missing');
+    }
+    if (typeof RadialChart !== 'function') {
+      throw new Error('RadialChart export is missing');
     }
     const profile = buildProfile('rounded', {
       innerRadius: 1,
@@ -96,6 +100,7 @@ try {
       LustreChart,
       type LustreOptions,
       type PieData,
+      type RadialData,
     } from 'lustre-charts';
 
     declare const container: HTMLElement;
@@ -107,6 +112,14 @@ try {
     const chart = new LustreChart(container, { type: 'pie', data, options });
     chart.applyOptions({ camera: { fov: 42 } });
     chart.destroy();
+
+    const radialData: RadialData = [{ label: 'Complete', value: 100 }];
+    const radial = new LustreChart(container, {
+      type: 'radial',
+      data: radialData,
+      options: { radial: { maxValue: 100, track: true } },
+    });
+    radial.destroy();
   `);
   await writeFile(join(scratch, 'tsconfig.json'), JSON.stringify({
     compilerOptions: {
