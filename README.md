@@ -31,6 +31,8 @@ than fifty chart types that all look like homework:
 
 - 🥧 **Pie / Donut** — revolved cross-section profiles (rounded, straight, pillow, tube… or your
   own points), pad angles, exploding slices, callout labels
+- 🌀 **Radial** — independently scaled concentric percentage rings, progress-edge callouts,
+  collision-free label lanes and optional recessed tracks
 - 📊 **Bar** — single or grouped series, rounded bars, projected value axis, staggered entrances
 
 Everything else is *look and feel*:
@@ -41,7 +43,7 @@ Everything else is *look and feel*:
 | 🌗 **Themes** | `dark`, `light`, fully custom objects, transparent backgrounds |
 | 🌈 **8 palettes** | aurora, neon, metal, candy, ocean, sunset, violet, mono — or any color array, auto-extended for large datasets |
 | ✨ **Effects** | bloom post-processing, neon grid floor, HUD rings, floating particles, soft contact shadow |
-| 🎬 **Motion** | sweep / rise / scale / wave / grow entrances, tweened data updates, hover lift & glow, click-to-explode |
+| 🎬 **Motion** | sweep / rise / scale / wave / grow entrances, tweened data updates, hover lift & glow, click-to-explode/lift |
 | 🏷 **Overlays** | SVG callout labels (dot + elbow leader), frosted-glass tooltip, interactive legend with animated re-layout |
 | ♻️ **Engineering** | render-on-demand loop, `ResizeObserver` responsive, PNG export, complete `destroy()`, zero dependencies beyond `three` |
 
@@ -149,6 +151,29 @@ options: {
 }
 ```
 
+### Concentric radial percentages
+
+Each item owns a complete scale rather than sharing a pie total. Data order is
+inner-to-outer and a full revolution is 100 by default:
+
+```js
+new LustreChart('#app', {
+  type: 'radial',
+  data: [
+    { label: 'Reach', value: 34 },
+    { label: 'Growth', value: 52 },
+    { label: 'Quality', value: 68 },
+    { label: 'Velocity', value: 81 },
+    { label: 'Target', value: 100 },
+  ],
+  options: {
+    radial: { ringGap: 0.09, track: true },
+  },
+});
+```
+
+<img src="docs/assets/radial-glossy-dark.png" alt="Lustre concentric radial percentage chart with 3D glossy rings and callout labels" width="820" />
+
 ### Live updates
 
 ```js
@@ -180,6 +205,7 @@ options: {
 | [Configuration reference](docs/configuration.md) | every option, annotated |
 | [Materials & theming](docs/materials-and-theming.md) | presets, palettes, themes, effects, custom studio |
 | [Pie & donut charts](docs/charts/pie.md) | profiles, explode, labels, sorting |
+| [Radial charts](docs/charts/radial.md) | concentric percentages, tracks, labels, updates |
 | [Bar charts](docs/charts/bar.md) | series, axis, entrances |
 
 ## Demo playground
@@ -213,7 +239,7 @@ npm run test:browser   # Chromium integration, accessibility, lifecycle, mobile
 src/
 ├── index.js          public API (LustreChart factory + exports)
 ├── core/             BaseChart rig · tween engine · themes · palettes · utils
-├── charts/           PieChart · BarChart
+├── charts/           PieChart · RadialChart · BarChart
 ├── geometry/         profile revolve + cap builder, outline builder
 ├── materials/        the six presets (physically based)
 ├── overlay/          SVG callout labels · tooltip · legend

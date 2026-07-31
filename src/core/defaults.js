@@ -74,6 +74,27 @@ export const DEFAULT_OPTIONS = {
     sort: null,
   },
 
+  radial: {
+    /** Outer radius shared by the concentric ring stack. */
+    radius: 3,
+    /** Radius of the empty center before the innermost data ring. */
+    innerRadius: 0.45,
+    /** Extrusion height. Lower than pie so outer walls do not hide inner rings. */
+    height: 0.7,
+    cornerRadius: 0.1,
+    /** Radial spacing between adjacent rings (world units). */
+    ringGap: 0.09,
+    /** Value represented by one complete revolution. */
+    maxValue: 100,
+    /** Shared start angle for every ring; -90 = 12 o'clock. */
+    startAngle: -90,
+    clockwise: true,
+    /** Built-in profile name or a custom silhouette normalized into each band. */
+    profile: 'auto',
+    /** false | true | { color?: 'auto' | string, opacity?: number } */
+    track: false,
+  },
+
   bar: {
     /** Bar footprint as a fraction of its grid cell. */
     barWidth: 0.6,
@@ -97,7 +118,7 @@ export const DEFAULT_OPTIONS = {
 
   labels: {
     show: true,
-    /** (item, chart) => string. Default: "Label 34%" for pie. */
+    /** (item, chart) => string. Default: "Label 34%" for pie/radial. */
     format: null,
     /** Callout elbow length in px. */
     offset: 48,
@@ -131,7 +152,7 @@ export const DEFAULT_OPTIONS = {
   animation: {
     /**
      * 'auto' | 'sweep' | 'rise' | 'scale' | 'grow' | 'wave' | 'none'
-     * (pie auto = sweep, bar auto = wave)
+     * (pie/radial auto = sweep, bar auto = wave)
      */
     entrance: 'auto',
     duration: 1500,
@@ -147,7 +168,7 @@ export const DEFAULT_OPTIONS = {
     /** 'lift' | 'glow' | 'both' | 'none' */
     hover: 'both',
     liftDistance: 0.25,
-    /** Click behavior on pie slices: 'explode' | 'none'. */
+    /** Click behavior on pie slices / radial rings: 'explode' | 'none'. */
     select: 'explode',
     explodeDistance: 0.45,
     /** (item | null, event) => void */

@@ -84,10 +84,12 @@ export class LabelOverlay {
    * @param {number} p.ay  anchor y (px)
    * @param {number} p.dx  outward direction x (normalized, screen space)
    * @param {number} p.dy  outward direction y
+   * @param {number} [p.side] forced text side (`-1` or `1`)
+   * @param {number} [p.elbowY] collision-resolved elbow row (px)
    * @param {string} p.textContent
    * @param {number} p.opacity 0–1
    */
-  place(index, { ax, ay, dx, dy, textContent, opacity }) {
+  place(index, { ax, ay, dx, dy, side: forcedSide, elbowY, textContent, opacity }) {
     const n = this.nodes.get(index);
     if (!n) return;
     if (opacity <= 0.01) {
@@ -96,8 +98,8 @@ export class LabelOverlay {
     }
     const o = this.chart.options.labels;
     let ex = ax + dx * o.offset;
-    const ey = ay + dy * o.offset;
-    const side = dx >= 0 ? 1 : -1;
+    const ey = Number.isFinite(elbowY) ? elbowY : ay + dy * o.offset;
+    const side = forcedSide === -1 || forcedSide === 1 ? forcedSide : (dx >= 0 ? 1 : -1);
     const tailLen = 16;
     let tx = ex + side * tailLen;
 

@@ -23,6 +23,7 @@ const state = {
   labels: true,
   legend: true,
   pie: { radius: 3, height: 1.15, innerRadius: 1.65, cornerRadius: 0.16, padAngle: 1.4, explode: 0, profile: 'auto' },
+  radial: { radius: 3, height: 0.7, innerRadius: 0.45, cornerRadius: 0.1, ringGap: 0.09, maxValue: 100, profile: 'auto', track: false },
   bar: { barWidth: 0.6, gap: 0.25, cornerRadius: 0.07 },
   effects: { bloom: 'auto', shadow: true, grid: false, rings: false, particles: false },
 };
@@ -53,6 +54,14 @@ let pieData = [
   { label: 'Echo', value: 11 },
 ];
 
+let radialData = [
+  { label: 'Reach', value: 34 },
+  { label: 'Growth', value: 52 },
+  { label: 'Quality', value: 68 },
+  { label: 'Velocity', value: 81 },
+  { label: 'Target', value: 100 },
+];
+
 let barData = {
   categories: ['Q1', 'Q2', 'Q3', 'Q4'],
   series: [
@@ -78,6 +87,7 @@ function currentOptions() {
     palette: state.palette,
     camera: { autoRotate: state.autoRotate },
     pie: { ...state.pie, profile: state.pie.profile === 'wavy' ? WAVY_PROFILE : state.pie.profile },
+    radial: { ...state.radial, profile: state.radial.profile === 'wavy' ? WAVY_PROFILE : state.radial.profile },
     bar: { ...state.bar },
     labels: { show: state.labels },
     legend: { show: state.legend },
@@ -87,7 +97,9 @@ function currentOptions() {
 }
 
 function currentData() {
-  return state.type === 'bar' ? barData : pieData;
+  if (state.type === 'bar') return barData;
+  if (state.type === 'radial') return radialData;
+  return pieData;
 }
 
 function recreate() {
@@ -121,11 +133,11 @@ function activateChartType(btn) {
     tab.setAttribute('aria-selected', String(active));
     tab.tabIndex = active ? 0 : -1;
   }
-  const pieHidden = state.type === 'bar';
-  $('pieControls').hidden = pieHidden;
-  $('pieControls').classList.toggle('hidden', pieHidden);
-  $('barControls').hidden = !pieHidden;
-  $('barControls').classList.toggle('hidden', !pieHidden);
+  for (const [id, type] of [['pieControls', 'pie'], ['radialControls', 'radial'], ['barControls', 'bar']]) {
+    const hidden = state.type !== type;
+    $(id).hidden = hidden;
+    $(id).classList.toggle('hidden', hidden);
+  }
   recreate();
 }
 
@@ -206,7 +218,7 @@ themeToggle.addEventListener('click', () => {
   renderCode();
 });
 
-/* Shape sliders (pie) -------------------------------------------------- */
+/* Shape sliders -------------------------------------------------------- */
 function bindSlider(id, valueId, apply, fmt = (v) => v.toFixed(2)) {
   const input = $(id);
   const label = $(valueId);
@@ -238,6 +250,30 @@ function patchPie() {
 $('profileSelect').addEventListener('change', (e) => {
   state.pie.profile = e.target.value;
   patchPie();
+});
+
+/* Radial sliders ------------------------------------------------------- */
+bindSlider('s-radial-height', 'v-radial-height', (v) => { state.radial.height = v; patchRadial(); });
+bindSlider('s-radial-inner', 'v-radial-inner', (v) => { state.radial.innerRadius = v; patchRadial(); });
+bindSlider('s-ring-gap', 'v-ring-gap', (v) => { state.radial.ringGap = v; patchRadial(); });
+bindSlider('s-radial-corner', 'v-radial-corner', (v) => { state.radial.cornerRadius = v; patchRadial(); });
+
+let radialRaf = 0;
+function patchRadial() {
+  cancelAnimationFrame(radialRaf);
+  radialRaf = requestAnimationFrame(() =>
+    patch({ radial: { ...state.radial, profile: state.radial.profile === 'wavy' ? WAVY_PROFILE : state.radial.profile } })
+  );
+}
+
+$('radialProfileSelect').addEventListener('change', (e) => {
+  state.radial.profile = e.target.value;
+  patchRadial();
+});
+
+$('t-track').addEventListener('change', (e) => {
+  state.radial.track = e.target.checked;
+  patchRadial();
 });
 
 /* Bar sliders ----------------------------------------------------------- */
@@ -293,6 +329,8 @@ $('randomBtn').addEventListener('click', () => {
         values: s.values.map(() => Math.round(20 + Math.random() * 100)),
       })),
     };
+  } else if (state.type === 'radial') {
+    radialData = radialData.map((d) => ({ ...d, value: Math.round(10 + Math.random() * 90) }));
   } else {
     pieData = pieData.map((d) => ({ ...d, value: Math.round(5 + Math.random() * 40) }));
   }
@@ -308,6 +346,10 @@ $('addBtn').addEventListener('click', () => {
       categories: [...barData.categories, q],
       series: barData.series.map((s) => ({ ...s, values: [...s.values, Math.round(20 + Math.random() * 100)] })),
     };
+  } else if (state.type === 'radial') {
+    if (radialData.length >= 8) return toast('Max 8 rings in the demo');
+    const label = SLICE_NAMES[radialData.length % SLICE_NAMES.length];
+    radialData = [...radialData, { label, value: Math.round(15 + Math.random() * 85) }];
   } else {
     if (pieData.length >= 10) return toast('Max 10 slices in the demo');
     const label = SLICE_NAMES[pieData.length % SLICE_NAMES.length];
@@ -324,6 +366,9 @@ $('removeBtn').addEventListener('click', () => {
       categories: barData.categories.slice(0, -1),
       series: barData.series.map((s) => ({ ...s, values: s.values.slice(0, -1) })),
     };
+  } else if (state.type === 'radial') {
+    if (radialData.length <= 2) return toast('Keep at least 2 rings');
+    radialData = radialData.slice(0, -1);
   } else {
     if (pieData.length <= 2) return toast('Keep at least 2 slices');
     pieData = pieData.slice(0, -1);
@@ -357,6 +402,7 @@ $('copyBtn').addEventListener('click', async () => {
 function buildSnippet() {
   const options = currentOptions();
   if (options.pie.profile === WAVY_PROFILE) options.pie.profile = '/* custom {x,y}[] */';
+  if (options.radial.profile === WAVY_PROFILE) options.radial.profile = '/* custom {x,y}[] */';
   const cfg = { type: state.type, data: currentData(), options };
   return [
     `import { LustreChart } from 'lustre-charts';`,

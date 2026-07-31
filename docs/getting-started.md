@@ -53,7 +53,7 @@ Lustre ships as plain ES modules, so a static server plus an import map is a com
 
 ```js
 const chart = new LustreChart('#app', {
-  type: 'donut',                       // 'pie' | 'donut' | 'bar'
+  type: 'donut',                       // 'pie' | 'donut' | 'radial' | 'bar'
   data: [
     { label: 'Chrome', value: 64 },
     { label: 'Safari', value: 19 },
@@ -92,6 +92,26 @@ data: [64, 19, 9, 8]
 // Chart.js-style parallel arrays
 data: { labels: ['Chrome', 'Safari'], values: [64, 19], colors: ['#00e5ff', '#ff2ec4'] }
 ```
+
+### Radial
+
+Radial data uses the same friendly forms, but every value fills its own
+concentric ring rather than being divided by a shared total:
+
+```js
+data: [
+  { label: 'Reach', value: 34 },       // innermost ring
+  { label: 'Growth', value: 52 },
+  { label: 'Quality', value: 68 },
+  { label: 'Target', value: 100 },     // outermost, complete ring
+]
+
+// Parallel arrays work too
+data: { labels: ['Reach', 'Growth'], values: [34, 52], colors: ['#00e5ff', '#7c4dff'] }
+```
+
+One complete ring is `radial.maxValue` (`100` by default). Values above the
+maximum are visually clamped while callbacks retain the original value.
 
 ### Bar
 
@@ -134,6 +154,6 @@ because WebGL cannot change MSAA on an existing context. See
 
 - Skim the [configuration reference](configuration.md) — everything is an option.
 - Try the [materials & theming guide](materials-and-theming.md) for the six looks.
-- Chart specifics: [pie/donut](charts/pie.md), [bar](charts/bar.md).
+- Chart specifics: [pie/donut](charts/pie.md), [radial](charts/radial.md), [bar](charts/bar.md).
 - Or just open the demo (`npm run dev` → `http://localhost:5173/demo/`) and copy
   the generated config.

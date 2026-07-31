@@ -13,7 +13,7 @@ new LustreChart(el, { type, data, options: { /* this document */ } });
 Most options can be changed after construction. Lightweight settings such as
 `background`, `camera`, `labels`, `legend`, `tooltip`, `animation`,
 `interaction`, `effects`, `quality.dpr`, `responsive`, and `ariaLabel` apply
-live. Changes to `theme`, `material`, `palette`, `pie`, or `bar` rebuild the
+live. Changes to `theme`, `material`, `palette`, `pie`, `radial`, or `bar` rebuild the
 affected chart meshes while preserving the chart instance and data.
 
 `quality.antialias` is constructor-only because WebGL fixes MSAA when its
@@ -43,7 +43,7 @@ intentionally replaces it.
 |---|---|---|
 | `fov` | `38` | Perspective field of view (degrees). |
 | `position` | `null` | `[x, y, z]` override. `null` auto-frames from chart bounds. |
-| `elevation` | `26` | Auto-framing: degrees above the horizon. |
+| `elevation` | `26` (`38` for radial) | Auto-framing: degrees above the horizon. Radial defaults higher so outer walls do not hide inner rings. |
 | `azimuth` | `0` (pie) / `-32` (bar) | Auto-framing: degrees around the chart. |
 | `zoom` | `1` | Auto-framing distance multiplier (smaller = closer). |
 | `autoRotate` | `false` | Slow orbital rotation. |
@@ -74,6 +74,25 @@ intentionally replaces it.
 | `explode` | `0` | Radial offset applied to all slices. |
 | `sort` | `null` | `null`, `'asc'` or `'desc'` — layout order by value. |
 
+## `radial` (used by `type: 'radial'`)
+
+| Option | Default | Description |
+|---|---|---|
+| `radius` | `3` | Outer radius of the concentric stack. |
+| `innerRadius` | `0.45` | Empty center radius before the innermost item. |
+| `height` | `0.7` | Progress-ring extrusion height. |
+| `cornerRadius` | `0.1` | Bevel radius of each ring cross-section. |
+| `ringGap` | `0.09` | Radial space between adjacent rings. |
+| `maxValue` | `100` | Value represented by a complete circle. Must be finite and positive. |
+| `startAngle` | `-90` | Shared ring start (`-90` = 12 o'clock). |
+| `clockwise` | `true` | Sweep direction. |
+| `profile` | `'auto'` | Built-in profile or a custom silhouette normalized into every ring band. |
+| `track` | `false` | `false`, `true`, or `{ color: 'auto' \| string, opacity }` for recessed full-circle tracks. |
+
+Data order is innermost to outermost. The available width between
+`innerRadius` and `radius` is divided equally after ring gaps are reserved.
+See the [radial chart guide](charts/radial.md).
+
 ## `bar` (used by `type: 'bar'`)
 
 | Option | Default | Description |
@@ -87,7 +106,7 @@ intentionally replaces it.
 | `axis.format` | `null` | `(value) => string`. Defaults to compact notation (1.2K, 3M…). |
 | `categoryLabels` | `true` | Projected category names under the front row. |
 
-## `labels` (pie callouts)
+## `labels` (pie and radial callouts)
 
 | Option | Default | Description |
 |---|---|---|
@@ -99,7 +118,7 @@ intentionally replaces it.
 | `color` / `lineColor` | `'auto'` | `'auto'` follows the theme. |
 | `dot` | `true` | Colored dot at the text start. |
 | `dimBackfacing` | `true` | Fade labels whose slice faces away from the camera. |
-| `minPercent` | `2` | Hide labels for slices under this share. |
+| `minPercent` | `2` | Hide labels below this percentage. |
 
 ## `legend`
 
@@ -120,7 +139,7 @@ intentionally replaces it.
 
 | Option | Default | Description |
 |---|---|---|
-| `entrance` | `'auto'` | `'auto'` (pie → `sweep`, bar → `wave`), `'sweep'`, `'rise'`, `'scale'`, `'grow'`, `'wave'`, `'none'`. |
+| `entrance` | `'auto'` | `'auto'` (pie/radial → `sweep`, bar → `wave`), `'sweep'`, `'rise'`, `'scale'`, `'grow'`, `'wave'`, `'none'`. |
 | `duration` | `1500` | Entrance duration, ms. |
 | `easing` | `'cubicInOut'` | Easing name (see `Easings` export) or a `(t) => t` function. |
 | `stagger` | `70` | Delay between items for staggered entrances, ms. |
@@ -133,7 +152,7 @@ intentionally replaces it.
 |---|---|---|
 | `enabled` | `true` | Master switch for pointer handling. |
 | `hover` | `'both'` | `'lift'`, `'glow'`, `'both'`, `'none'`. |
-| `liftDistance` | `0.25` | Hover lift distance (pie slices move along their bisector). |
+| `liftDistance` | `0.25` | Hover lift distance (pie slices move along their bisector; radial rings lift vertically). |
 | `select` | `'explode'` | Click behavior: `'explode'` or `'none'`. |
 | `explodeDistance` | `0.45` | How far selected slices travel. |
 | `onHover` | `null` | `(item \| null, event) => void`. |
@@ -157,7 +176,7 @@ intentionally replaces it.
 | `dpr` | `'auto'` | `'auto'` = `min(devicePixelRatio, 2)`, or a number. |
 | `antialias` | `true` | MSAA on the WebGL context. Constructor-only. |
 
-## Per-item overrides (pie data)
+## Per-item overrides (pie and radial data)
 
 ```js
 data: [

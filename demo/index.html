@@ -56,6 +56,7 @@
         <h3>Chart</h3>
         <div class="segmented" id="typeSeg" role="tablist" aria-label="Chart type">
           <button id="typePieTab" data-type="pie" class="active" role="tab" aria-selected="true" aria-controls="pieControls" tabindex="0">Pie / Donut</button>
+          <button id="typeRadialTab" data-type="radial" role="tab" aria-selected="false" aria-controls="radialControls" tabindex="-1">Radial</button>
           <button id="typeBarTab" data-type="bar" role="tab" aria-selected="false" aria-controls="barControls" tabindex="-1">Bar</button>
         </div>
       </section>
@@ -103,6 +104,40 @@
           <span>Explode <em id="v-explode"></em></span>
           <input type="range" id="s-explode" min="0" max="1" step="0.02" value="0" />
         </label>
+      </section>
+
+      <section class="card hidden" id="radialControls" role="tabpanel" aria-labelledby="typeRadialTab" hidden>
+        <h3>Concentric rings</h3>
+        <label class="row">
+          <span>Profile</span>
+          <select id="radialProfileSelect">
+            <option value="auto" selected>Auto</option>
+            <option value="rounded">Rounded</option>
+            <option value="straight">Straight</option>
+            <option value="pillow">Pillow</option>
+            <option value="tube">Tube</option>
+            <option value="wavy">Custom · wavy</option>
+          </select>
+        </label>
+        <label class="slider-row">
+          <span>Height <em id="v-radial-height"></em></span>
+          <input type="range" id="s-radial-height" min="0.15" max="1.5" step="0.05" value="0.7" />
+        </label>
+        <label class="slider-row">
+          <span>Center radius <em id="v-radial-inner"></em></span>
+          <input type="range" id="s-radial-inner" min="0" max="2" step="0.05" value="0.45" />
+        </label>
+        <label class="slider-row">
+          <span>Ring gap <em id="v-ring-gap"></em></span>
+          <input type="range" id="s-ring-gap" min="0" max="0.28" step="0.01" value="0.09" />
+        </label>
+        <label class="slider-row">
+          <span>Corner radius <em id="v-radial-corner"></em></span>
+          <input type="range" id="s-radial-corner" min="0" max="0.3" step="0.01" value="0.1" />
+        </label>
+        <div class="toggles">
+          <label class="switch"><input type="checkbox" id="t-track" /><i></i><span>Recessed tracks</span></label>
+        </div>
       </section>
 
       <section class="card hidden" id="barControls" role="tabpanel" aria-labelledby="typeBarTab" hidden>

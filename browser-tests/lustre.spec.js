@@ -24,9 +24,13 @@ test('demo exposes operable chart, material, palette, and theme controls', async
 
   await expect(page.getByRole('heading', { name: 'Lustre', level: 1 })).toBeVisible();
   const pieTab = page.getByRole('tab', { name: 'Pie / Donut' });
+  const radialTab = page.getByRole('tab', { name: 'Radial' });
   const barTab = page.getByRole('tab', { name: 'Bar' });
   await expect(pieTab).toHaveAttribute('aria-selected', 'true');
   await pieTab.press('ArrowRight');
+  await expect(radialTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('img', { name: /Radial chart/ })).toBeVisible();
+  await radialTab.press('ArrowRight');
   await expect(barTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('img', { name: /Bar chart/ })).toBeVisible();
 
@@ -64,6 +68,28 @@ test.describe('mobile sizing', () => {
       });
     });
     expect(labelsFit).toBe(true);
+
+    await page.getByRole('tab', { name: 'Radial' }).click();
+    await page.getByRole('img', { name: /Radial chart/ }).waitFor();
+    await page.waitForTimeout(1_800);
+    const radialLabelsFit = await page.locator('#stage').evaluate((stage) => {
+      const stageRect = stage.getBoundingClientRect();
+      const labels = [...stage.querySelectorAll('.lustre-labels text')]
+        .map((text) => text.getBoundingClientRect())
+        .filter((rect) => rect.width > 0 && rect.height > 0);
+      const inside = labels.every((rect) =>
+        rect.left >= stageRect.left - 1 && rect.right <= stageRect.right + 1 &&
+        rect.top >= stageRect.top - 1 && rect.bottom <= stageRect.bottom + 1
+      );
+      const overlaps = labels.some((rect, index) =>
+        labels.slice(index + 1).some((other) =>
+          rect.left < other.right && rect.right > other.left &&
+          rect.top < other.bottom && rect.bottom > other.top
+        )
+      );
+      return inside && !overlaps;
+    });
+    expect(radialLabelsFit).toBe(true);
 
     await page.getByRole('tab', { name: 'Bar' }).click();
     await page.getByRole('img', { name: /Bar chart/ }).waitFor();
