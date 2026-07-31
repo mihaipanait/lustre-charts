@@ -1,8 +1,8 @@
 <div align="center">
 
-# ◆ Lustre
+# Lustre Charts
 
-**Gorgeous, configurable 3D charts for the web.**
+**Gorgeous, vibe coded, configurable 3D charts for the web.**
 
 *In mineralogy, "lustre" names the ways light plays on a surface — metallic, vitreous, adamantine.
 This library brings those finishes to your data.*
@@ -254,6 +254,13 @@ src/
 
 Any evergreen browser with WebGL2. The supported and continuously tested
 three.js range is `>= 0.167.0 < 0.186.0`.
+
+## Vibe coded
+
+Lustre Charts is a **vibe coded project**. It began with an original idea by Mihai Panait,
+then evolved through iterative collaboration with AI models including Gemini, Claude, Codex,
+DeepSeek and Kimi. These models helped refine, implement, review, test and polish the project,
+while its creative direction and final decisions remain human-led.
 
 ## License
 
