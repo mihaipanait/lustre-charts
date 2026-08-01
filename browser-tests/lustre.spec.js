@@ -51,6 +51,57 @@ test('demo exposes operable chart, material, palette, and theme controls', async
   expect(errors).toEqual([]);
 });
 
+test('drag gestures suppress segment hover until the pointer moves intentionally again', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/demo/');
+  await page.getByRole('img', { name: /Pie chart/ }).waitFor();
+
+  const interaction = await page.evaluate(() => {
+    const chart = window.chart;
+    const event = (clientX, clientY) => ({ clientX, clientY });
+
+    chart._applyHover(0, event(100, 100));
+    chart._onPointerDown(event(100, 100));
+    const clearedOnPress = chart.hoveredIndex === null;
+
+    chart._onPointerMove(event(130, 115));
+    const suppressedDuringDrag = chart._pickPending === false && chart.hoveredIndex === null;
+
+    let picks = 0;
+    const doPick = chart._doPick;
+    chart._doPick = () => { picks += 1; };
+    chart._onPointerUp(event(130, 115));
+    const suppressedOnDragRelease = picks === 0 && chart.hoveredIndex === null;
+
+    chart._onPointerMove(event(131, 115));
+    const freshMoveRequestsHover = chart._pickPending === true;
+    chart._pickPending = false;
+
+    chart._onPointerDown(event(140, 120));
+    chart._onPointerUp(event(140, 120));
+    const clickStillPicks = picks === 1;
+
+    chart._doPick = doPick;
+
+    return {
+      clearedOnPress,
+      suppressedDuringDrag,
+      suppressedOnDragRelease,
+      freshMoveRequestsHover,
+      clickStillPicks,
+    };
+  });
+
+  expect(interaction).toEqual({
+    clearedOnPress: true,
+    suppressedDuringDrag: true,
+    suppressedOnDragRelease: true,
+    freshMoveRequestsHover: true,
+    clickStillPicks: true,
+  });
+  expect(errors).toEqual([]);
+});
+
 test.describe('mobile sizing', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
