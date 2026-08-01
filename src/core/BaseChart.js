@@ -210,10 +210,19 @@ export class BaseChart {
       );
       this._pointerPx = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       this._pointerEvent = e;
+      // OrbitControls consumes pressed-pointer moves to rotate/pan/zoom the
+      // camera. Keep the pointer position current, but do not let those moves
+      // accidentally sweep hover animations across chart items.
+      if (this._downInfo) {
+        this._pickPending = false;
+        return;
+      }
       this._pickPending = true;
     };
     this._onPointerDown = (e) => {
       this._downInfo = { x: e.clientX, y: e.clientY, t: performance.now() };
+      this._pickPending = false;
+      this._applyHover(null, e);
     };
     this._onPointerUp = (e) => {
       const d = this._downInfo;
@@ -222,6 +231,7 @@ export class BaseChart {
       const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
       if (moved > 6 || performance.now() - d.t > 600) return; // was a drag
       this._onPointerMove(e);
+      this._pickPending = false;
       this._doPick();
       const idx = this.hoveredIndex;
       const item = idx != null ? this.getItem(idx) : null;
@@ -237,6 +247,11 @@ export class BaseChart {
       this._pointerEvent = e;
       this._applyHover(null, e);
     };
+    this._onPointerCancel = (e) => {
+      this._downInfo = null;
+      this._pickPending = false;
+      this._onPointerLeave(e);
+    };
 
     this._interactionBound = false;
     this._setInteractionEvents(this.options.interaction.enabled);
@@ -250,8 +265,10 @@ export class BaseChart {
     this.canvas[method]('pointermove', this._onPointerMove);
     this.canvas[method]('pointerdown', this._onPointerDown);
     this.canvas[method]('pointerup', this._onPointerUp);
+    this.canvas[method]('pointercancel', this._onPointerCancel);
     this.canvas[method]('pointerleave', this._onPointerLeave);
     this._interactionBound = shouldBind;
+    if (!shouldBind) this._downInfo = null;
     if (!shouldBind && clearHover) {
       this._pickPending = false;
       this._pointer.set(2, 2);
