@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-08-01
+
 ### Changed
 
 - Create or refresh a matching GitHub Release from `CHANGELOG.md` after each
   successful npm publication.
+
+### Fixed
+
+- Suppress segment hover animations during pointer-driven chart rotation,
+  panning, and zooming while preserving intentional hover, click, and tap
+  interactions.
 
 ## [0.2.0] — 2026-07-31
 
