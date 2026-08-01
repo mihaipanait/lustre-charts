@@ -50,6 +50,6 @@ test('loads the current package release notes', async () => {
   const release = await loadReleaseNotes(undefined, root);
 
   assert.equal(release.version, packageJson.version);
-  assert.match(release.notes, /TypeScript declarations/);
+  assert.match(release.notes, /^### (Added|Changed|Deprecated|Removed|Fixed|Security)$/m);
   assert.doesNotMatch(release.notes, /^## \[/m);
 });
