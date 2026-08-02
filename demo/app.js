@@ -109,6 +109,7 @@ const MATERIAL_INFO = {
   iridescent: ['Angle-shift film', 'Opaque spectral color that changes as you orbit the view.'],
   crystal: ['Dispersive crystal', 'Clear high-IOR glass with chromatic edge separation.'],
   acrylic: ['Frosted acrylic', 'Soft transmission, milky depth, and a polished outer skin.'],
+  subsurface: ['Subsurface gel', 'Partial transmission and palette-tinted diffusion revealed by a dedicated rear light.'],
   velvet: ['Velvet sheen', 'Dark diffuse body with bright color at grazing angles.'],
   inset: ['Inset white face', 'One solid-white face is sunk into a larger colored backing.'],
 };

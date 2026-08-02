@@ -152,6 +152,7 @@ export class PieChart extends BaseChart {
     this._resolveProfile();
     this.pickables = [];
     let anyBloom = false;
+    let anyBacklight = false;
 
     for (const item of this.items) {
       const spec = createItemMaterial({
@@ -162,6 +163,7 @@ export class PieChart extends BaseChart {
       });
       item.spec = spec;
       anyBloom = anyBloom || spec.wantsBloom;
+      anyBacklight = anyBacklight || spec.wantsBacklight;
 
       const group = new THREE.Group();
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), spec.material);
@@ -247,6 +249,7 @@ export class PieChart extends BaseChart {
     }
 
     this.resolveBloom(anyBloom);
+    this.resolveBacklight(anyBacklight);
   }
 
   _disposeItems(items) {

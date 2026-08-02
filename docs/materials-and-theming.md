@@ -28,6 +28,7 @@ are required.
 | `iridescent` | Opaque thin film | Strong spectral color shift as the camera moves. |
 | `crystal` | Polished optical glass | High IOR, strong dispersion, precise clearcoat, and long absorption depth. |
 | `acrylic` | Frosted translucent polymer | Soft transmission and milky depth under a polished skin. |
+| `subsurface` | Soft gel / wax | Partial physical transmission plus palette-aware wrapped diffusion and back-scattering under a polished PBR surface. |
 | `velvet` | Soft textile | Dark diffuse body with colored grazing-angle sheen. |
 | `inset` | Inset white face | A smaller solid-white face is physically sunk into a colored backing silhouette. |
 
@@ -74,6 +75,15 @@ material: {
   preset: 'halftone',
   shader: { scale: 9, dotSize: 0.18, inkStrength: 0.92 },
   outline: { color: '#ffffff', widthPx: 3 },
+}
+
+// Real-time subsurface diffusion
+material: {
+  preset: 'subsurface',
+  shader: { strength: 0.9, radius: 1.1, wrap: 0.4, backscatter: 0.8 },
+  transmission: 0.36,
+  thicknessScale: 0.8,
+  roughness: 0.3,
 }
 ```
 

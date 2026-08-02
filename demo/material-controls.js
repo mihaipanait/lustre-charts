@@ -33,7 +33,7 @@ const surface = {
 };
 
 const optics = {
-  transmission: (value) => range('Optics', 'transmission', 'Transmission', 0, 1, 0.01, value, 'Amount of light passing through the material.'),
+  transmission: (value, light = value) => range('Optics', 'transmission', 'Transmission', 0, 1, 0.01, value, 'Amount of light passing through the material.', { lightDefault: light }),
   volume: () => range('Optics', 'thicknessScale', 'Volume depth', 0.1, 2.5, 0.05, 1, 'Multiplier for the preset’s geometry-aware optical thickness.', { suffix: '×' }),
   attenuation: () => range('Optics', 'attenuationScale', 'Tint distance', 0, 3, 0.05, 0.15, 'Multiplier for the distance light travels before absorbing color. Zero gives maximum absorption.', { suffix: '×' }),
   ior: (value) => range('Optics', 'ior', 'Refraction index', 1, 2.333, 0.01, value, 'Controls how strongly light bends through the surface.'),
@@ -152,6 +152,20 @@ export const MATERIAL_CONTROLS = {
     surface.clearcoat(0.82),
     range('Surface', 'sheen', 'Soft sheen', 0, 1, 0.01, 0.36, 'Broad grazing highlight on the polymer surface.'),
     range('Surface', 'sheenRoughness', 'Sheen softness', 0.07, 1, 0.01, 0.72, 'Spread of the soft sheen highlight.'),
+  ],
+  subsurface: [
+    range('Scattering', 'shader.strength', 'Scatter strength', 0, 2, 0.01, 1, 'Amount of diffuse light that bleeds around and through the surface.'),
+    range('Scattering', 'shader.radius', 'Scatter radius', 0.05, 2, 0.05, 1.1, 'How far light spreads through the palette-tinted material.'),
+    range('Scattering', 'shader.wrap', 'Light wrap', 0, 1, 0.01, 0.48, 'How far direct light bends around the surface terminator.'),
+    range('Scattering', 'shader.backscatter', 'Backlight glow', 0, 2, 0.01, 1.35, 'Strength of transmitted glow when a light is behind the object.'),
+    optics.transmission(0.58, 0.48),
+    optics.volume(),
+    range('Optics', 'attenuationScale', 'Tint distance', 0, 3, 0.05, 1, 'Multiplier for the distance transmitted light travels before absorbing the palette color.', { suffix: '×' }),
+    optics.ior(1.42),
+    ...opticalSurface(),
+    surface.roughness(0.4),
+    surface.clearcoat(0.48),
+    surface.coatRoughness(0.2),
   ],
   velvet: [
     surface.roughness(0.86),

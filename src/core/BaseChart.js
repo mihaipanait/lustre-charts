@@ -166,11 +166,18 @@ export class BaseChart {
       key: new THREE.DirectionalLight('#ffffff', 1),
       fill: new THREE.DirectionalLight('#ffffff', 1),
       rim: new THREE.DirectionalLight('#ffffff', 1),
+      subsurfaceBack: new THREE.DirectionalLight('#ffffff', 0),
     };
     this.lights.key.position.set(7, 5.5, 6.5);
     this.lights.fill.position.set(-7, 3.5, -3);
     this.lights.rim.position.set(-3, 6, -9);
+    // Camera-opposed light used only by materials that opt into transmitted
+    // lighting. Opaque presets receive no surprise front-face illumination.
+    this.lights.subsurfaceBack.position.set(0, -2, -10);
+    this._materialBacklight = false;
+    this._subsurfaceBackPosition = new THREE.Vector3();
     for (const light of Object.values(this.lights)) this.scene.add(light);
+    this.scene.add(this.lights.subsurfaceBack.target);
 
     // Group all chart content so charts can be swapped/cleared cleanly.
     this.chartGroup = new THREE.Group();
@@ -347,6 +354,10 @@ export class BaseChart {
     this.lights.fill.color.set(L.fillColor);
     this.lights.rim.intensity = L.rim;
     this.lights.rim.color.set(L.rimColor);
+    this.lights.subsurfaceBack.intensity = this._materialBacklight
+      ? (theme.kind === 'dark' ? 1.6 : 1.15)
+      : 0;
+    this.lights.subsurfaceBack.color.set(theme.kind === 'dark' ? '#fff1dc' : '#ffffff');
 
     // Bloom threshold follows the theme unless user pinned it
     if (this._bloomPass) {
@@ -535,6 +546,15 @@ export class BaseChart {
     return this.setBloom(!!materialsWantBloom);
   }
 
+  /** Activate the camera-opposed light only for transmission-aware materials. */
+  resolveBacklight(materialsWantBacklight) {
+    this._materialBacklight = !!materialsWantBacklight;
+    this.lights.subsurfaceBack.intensity = this._materialBacklight
+      ? (this.theme.kind === 'dark' ? 1.6 : 1.15)
+      : 0;
+    this.requestRender();
+  }
+
   /* ---------------------------------------------------------------- */
   /* Camera                                                            */
   /* ---------------------------------------------------------------- */
@@ -669,6 +689,20 @@ export class BaseChart {
   }
 
   _renderFrame() {
+    if (this._materialBacklight) {
+      // Keep the SSS light opposite the current camera so orbiting reveals a
+      // stable transmitted glow instead of losing it when the view changes.
+      const target = this.controls.target;
+      this._subsurfaceBackPosition
+        .copy(this.camera.position)
+        .sub(target)
+        .normalize()
+        .multiplyScalar(-10)
+        .add(target);
+      this.lights.subsurfaceBack.position.copy(this._subsurfaceBackPosition);
+      this.lights.subsurfaceBack.target.position.copy(target);
+      this.lights.subsurfaceBack.target.updateMatrixWorld();
+    }
     if (this._bloomOn && this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }

@@ -20,6 +20,7 @@
  *  - `iridescent` opaque, view-dependent thin-film color
  *  - `crystal`   highly polished dispersive glass
  *  - `acrylic`   softly frosted translucent polymer
+ *  - `subsurface` soft gel / wax with wrapped diffuse light + back-scattering
  *  - `velvet`    grazing-angle fabric sheen
  *  - `inset`     colored backing with one inset solid-white face
  *
@@ -32,7 +33,7 @@ import * as THREE from 'three';
 /** Preset names, in display order. */
 export const MATERIAL_PRESETS = [
   'glossy', 'glass', 'metal', 'neon', 'hologram', 'matte',
-  'toon', 'halftone', 'iridescent', 'crystal', 'acrylic', 'velvet', 'inset',
+  'toon', 'halftone', 'iridescent', 'crystal', 'acrylic', 'subsurface', 'velvet', 'inset',
 ];
 
 const SHARP_EDGE_PRESETS = new Set(['neon', 'toon', 'halftone']);
@@ -96,6 +97,105 @@ varying vec2 vLustreUv;`;
 }
 
 /**
+ * Add a single-pass, direct-light subsurface approximation to Three's stock
+ * physical shader. The original PBR response remains intact; this wrapper adds
+ * a chromatic diffusion lobe around the light terminator and a view-dependent
+ * transmission lobe when a light sits behind the object.
+ *
+ * Channel radius follows the palette pigment, so red wax, green slime, and
+ * blue gel naturally scatter their dominant wavelength farther without a
+ * separate color texture. This is an artistic real-time approximation rather
+ * than a screen-space or random-walk SSS solution.
+ *
+ * @param {THREE.MeshPhysicalMaterial} material
+ * @param {{ strength: number, radius: number, wrap: number, backscatter: number }} defaults
+ */
+function addSubsurfaceScattering(material, defaults) {
+  const uniforms = Object.fromEntries(
+    Object.entries(defaults).map(([name, value]) => [name, { value }]),
+  );
+  material.userData.lustreShader = { key: 'subsurface', uniforms };
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms ||= {};
+    shader.uniforms.uLustreStrength = uniforms.strength;
+    shader.uniforms.uLustreRadius = uniforms.radius;
+    shader.uniforms.uLustreWrap = uniforms.wrap;
+    shader.uniforms.uLustreBackscatter = uniforms.backscatter;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform float uLustreStrength;
+uniform float uLustreRadius;
+uniform float uLustreWrap;
+uniform float uLustreBackscatter;`)
+      .replace('#include <lights_physical_pars_fragment>', `
+// Preserve Three's physical direct-light function under a private name, then
+// route direct lights through a wrapper that adds the subsurface lobes.
+#define RE_Direct_Physical LUSTRE_RE_Direct_Physical
+#include <lights_physical_pars_fragment>
+#undef RE_Direct
+#undef RE_Direct_Physical
+
+void RE_Direct_LustreSubsurface(
+  const in IncidentLight directLight,
+  const in vec3 geometryPosition,
+  const in vec3 geometryNormal,
+  const in vec3 geometryViewDir,
+  const in vec3 geometryClearcoatNormal,
+  const in PhysicalMaterial material,
+  inout ReflectedLight reflectedLight
+) {
+  LUSTRE_RE_Direct_Physical(
+    directLight,
+    geometryPosition,
+    geometryNormal,
+    geometryViewDir,
+    geometryClearcoatNormal,
+    material,
+    reflectedLight
+  );
+
+  float lustreNL = dot(geometryNormal, directLight.direction);
+  float lustreLambert = saturate(lustreNL);
+  float lustreWrap = saturate((lustreNL + uLustreWrap) / (1.0 + uLustreWrap));
+  float lustreTerminator = max(lustreWrap - lustreLambert, 0.0);
+
+  float lustreBehind = saturate(dot(-geometryViewDir, directLight.direction));
+  float lustreBackFacing = saturate(-lustreNL);
+  float lustreTransmission = pow(lustreBehind, 3.0)
+    * lustreBackFacing
+    * uLustreBackscatter;
+
+  vec3 lustrePigment = max(material.diffuseContribution, vec3(0.001));
+  float lustreMaxChannel = max(max(lustrePigment.r, lustrePigment.g), lustrePigment.b);
+  vec3 lustreChannelRadius = mix(
+    vec3(1.0),
+    lustrePigment / max(lustreMaxChannel, 0.001),
+    0.72
+  ) * max(uLustreRadius, 0.001);
+  vec3 lustreProfile = exp(
+    -2.25 * abs(lustreNL) / max(lustreChannelRadius, vec3(0.001))
+  );
+  // Diffusion stays concentrated near the terminator. Backlighting uses a
+  // broader profile: otherwise the light directly behind a thick-looking
+  // face is paradoxically attenuated before it can create the translucent
+  // glow that communicates SSS.
+  vec3 lustreBackProfile = mix(vec3(0.32), sqrt(lustreProfile), 0.58);
+  vec3 lustreScatteredIrradiance = directLight.color * (
+    lustreProfile * lustreTerminator
+    + lustreBackProfile * lustreTransmission
+  );
+
+  reflectedLight.directDiffuse += lustreScatteredIrradiance
+    * BRDF_Lambert(material.diffuseContribution)
+    * uLustreStrength;
+}
+
+#define RE_Direct RE_Direct_LustreSubsurface`);
+  };
+  material.customProgramCacheKey = () => 'lustre-subsurface-v1';
+}
+
+/**
  * Push a color toward candy-pigment saturation. White studio light plus
  * tone mapping inevitably clips high-luminance hues (cyans, yellows)
  * toward white, so pigments are luminance-normalized: bright hues start
@@ -127,6 +227,7 @@ function pigment(c, satBoost = 1.25, maxLum = 0.3) {
  *   chart's local footprint and reference thickness; `embed` is the fraction
  *   of plate height sunk into the base.
  * @property {boolean} wantsBloom     preset looks best with bloom enabled
+ * @property {boolean} wantsBacklight preset needs a camera-opposed light to reveal transmission
  */
 
 /**
@@ -156,6 +257,7 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
     outline: null,
     layers: null,
     wantsBloom: false,
+    wantsBacklight: false,
   };
 
   switch (preset) {
@@ -431,6 +533,39 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
       break;
     }
 
+    case 'subsurface': {
+      const softPigment = pigment(base, 1.3, dark ? 0.25 : 0.36);
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: softPigment,
+        roughness: 0.4,
+        metalness: 0,
+        transmission: dark ? 0.58 : 0.48,
+        thickness: Math.max(0.45, thickness * 0.8),
+        ior: 1.42,
+        side: THREE.DoubleSide,
+        attenuationColor: base.clone().lerp(new THREE.Color('#ffffff'), 0.08),
+        attenuationDistance: Math.max(0.9, thickness * 1.6),
+        clearcoat: 0.48,
+        clearcoatRoughness: 0.2,
+        sheen: 0.28,
+        sheenColor: base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.42 : 0.28),
+        sheenRoughness: 0.72,
+        envMapIntensity: (dark ? 0.72 : 0.62) * theme.envIntensity,
+        emissive: softPigment,
+        emissiveIntensity: dark ? 0.025 : 0,
+      });
+      addSubsurfaceScattering(spec.material, {
+        strength: 1,
+        radius: 1.1,
+        wrap: 0.48,
+        backscatter: 1.35,
+      });
+      spec.wantsBacklight = true;
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.24;
+      break;
+    }
+
     case 'velvet': {
       const sheen = base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.46 : 0.28);
       spec.material = new THREE.MeshPhysicalMaterial({
@@ -519,7 +654,7 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
  * Recognized extras beyond material props:
  *   - `outline` tunes/removes generated rim lines.
  *   - `layer` tunes the first generated inset layer and its material.
- *   - `shader` tunes procedural treatment uniforms (halftone/iridescent).
+ *   - `shader` tunes procedural treatment uniforms (halftone/iridescent/subsurface).
  *   - `thicknessScale` / `attenuationScale` multiply volume defaults.
  *   - `environmentScale` multiplies the preset's reflection strength.
  *   - `surfaceSide` selects `front` or `double` face rendering.
