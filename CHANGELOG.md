@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-03
+
 ### Added
 
 - Add a `subsurface` gel/wax preset that combines restrained physical
@@ -17,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and darker split-complementary hues from each palette color, anchors the
   source color in a broad surface gradient, and exposes palette dominance,
   rim-contrast, and gradient-direction controls.
+- Add live custom-palette editing and adaptive data editors to the demo for
+  pie slices, radial rings, and complete bar series/category matrices, with
+  every edit included in the generated configuration.
+
+### Fixed
+
+- Keep chart geometry visible when names or values are edited during an active
+  entrance animation by applying one stable data update after it completes.
 
 ## [0.3.1] — 2026-08-02
 

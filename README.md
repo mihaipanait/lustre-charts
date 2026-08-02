@@ -17,7 +17,7 @@ This library brings those finishes to your data.*
 
 <img src="docs/assets/hero-donut-dark.jpg" alt="Lustre donut chart, glossy material, dark theme" width="820" />
 
-**[▶ Play with the live demo](https://mihaipanait.github.io/lustre-charts/)** — tune every material, palette, effect and quality setting, then export the exact configuration.
+**[▶ Play with the live demo](https://mihaipanait.github.io/lustre-charts/)** — edit chart data and colors, tune every material, effect and quality setting, then export the exact configuration.
 
 *Few chart types. Obsessive attention to how they look.*
 
@@ -246,10 +246,13 @@ npm run dev            # → http://localhost:5173/demo/
 ```
 
 The [demo](demo/) lets you flip through every chart type, material, palette,
-theme, profile and effect. **Material settings** exposes the useful artistic
-controls for the selected finish, while **Quality lab** exposes raw PMREM,
-transmission and geometry settings. **Copy config** / **View config** includes
-those active material, shader and quality overrides in the generated snippet.
+theme, profile and effect. Its **Custom** palette editor supports ordered color
+pickers and hex values, while the adaptive **Data** editor exposes pie slices,
+radial rings, or the complete bar series/category matrix. **Material settings**
+exposes the useful artistic controls for the selected finish, while **Quality
+lab** exposes raw PMREM, transmission and geometry settings. **Copy config** /
+**View config** includes the active data, custom colors, material, shader and
+quality overrides in the generated snippet.
 
 <img src="docs/assets/demo-page.jpg" alt="Lustre demo playground" width="820" />
 

@@ -65,6 +65,67 @@ test('demo exposes operable chart, material, palette, and theme controls', async
   expect(errors).toEqual([]);
 });
 
+test('demo edits custom palettes and every chart data shape', async ({ page }) => {
+  test.slow();
+  const errors = collectPageErrors(page);
+  await page.goto('/demo/?quality=balanced');
+
+  const data = page.getByRole('region', { name: 'Data' });
+  await data.getByRole('textbox', { name: 'Slice 1 name', exact: true }).fill('Revenue');
+  await expect(page.getByRole('img', { name: /Pie chart\. Revenue/ })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.chart._entranceProgress)).toBe(1);
+  expect(await page.evaluate(() => window.chart.items.every((item) =>
+    (item.mesh?.geometry?.attributes?.position?.count || 0) > 0
+  ))).toBe(true);
+  await page.getByRole('combobox', { name: 'Entrance' }).selectOption('none');
+
+  const palette = page.getByRole('region', { name: 'Palette' });
+  await palette.getByRole('button', { name: 'custom', exact: true }).click();
+  await palette.getByRole('textbox', { name: 'Custom palette color 1 hex', exact: true })
+    .fill('#ff3355');
+  await palette.getByRole('button', { name: '＋ Add color', exact: true }).click();
+  await expect(palette).toContainText('Custom · 7');
+  await expect(page.locator('#codeView')).toContainText('"palette": [');
+  await expect(page.locator('#codeView')).toContainText('"#ff3355"');
+  expect(await page.evaluate(() => window.chart.options.palette[0])).toBe('#ff3355');
+
+  await data.getByRole('spinbutton', { name: 'Slice 1 value', exact: true }).fill('61');
+  await data.getByRole('button', { name: '＋ Slice', exact: true }).click();
+  await expect(data).toContainText('6 slices');
+  await expect(page.getByRole('img', { name: /Pie chart\. Revenue/ })).toBeVisible();
+  await expect(page.locator('#codeView')).toContainText('"label": "Revenue"');
+  await expect(page.locator('#codeView')).toContainText('"value": 61');
+
+  await page.getByRole('tab', { name: 'Radial', exact: true }).click();
+  await data.getByRole('textbox', { name: 'Ring 1 name', exact: true }).fill('Engagement');
+  await data.getByRole('spinbutton', { name: 'Ring 1 value', exact: true }).fill('73');
+  await data.getByRole('button', { name: '＋ Ring', exact: true }).click();
+  await expect(data).toContainText('6 rings');
+  await expect(page.getByRole('img', { name: /Radial chart\. Engagement/ })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Bar', exact: true }).click();
+  await data.getByRole('textbox', { name: 'Series 1 name', exact: true }).fill('Baseline');
+  await data.getByRole('textbox', { name: 'Category 1 name', exact: true }).fill('North');
+  await data.getByRole('spinbutton', { name: 'Baseline, North value', exact: true }).fill('88');
+  await data.getByRole('button', { name: '＋ Series', exact: true }).click();
+  await data.getByRole('button', { name: '＋ Category', exact: true }).click();
+  await expect(data).toContainText('4 × 5');
+  await expect(data.getByRole('textbox', { name: 'Series 4 name', exact: true })).toHaveValue('Series 4');
+  await expect(page.locator('#codeView')).toContainText('"Baseline"');
+  await expect(page.locator('#codeView')).toContainText('"North"');
+  await expect(page.locator('#codeView')).toContainText('88');
+  expect(await page.evaluate(() => ({
+    category: window.chart._data.categories[0],
+    series: window.chart._data.series[0].name,
+    value: window.chart._data.series[0].values[0],
+  }))).toEqual({ category: 'North', series: 'Baseline', value: 88 });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.locator('.data-card').evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('material editor applies, retains, resets, and exports preset-specific overrides', async ({ page }) => {
   const errors = collectPageErrors(page);
   await page.goto('/demo/?quality=balanced');

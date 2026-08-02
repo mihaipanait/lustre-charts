@@ -40,6 +40,9 @@ const state = {
   theme: 'dark',
   material: 'glossy',
   palette: 'aurora',
+  lastPresetPalette: 'aurora',
+  customPalette: [...LustrePalettes.aurora],
+  customPaletteInitialized: false,
   entrance: prefersReducedMotion ? 'none' : 'auto',
   autoRotate: false,
   quality: { preset: initialQualityPreset, ...DEMO_QUALITY_PRESETS[initialQualityPreset] },
@@ -128,11 +131,15 @@ function currentMaterialOption() {
   return { preset: state.material, ...JSON.parse(JSON.stringify(overrides)) };
 }
 
+function currentPaletteOption() {
+  return state.palette === 'custom' ? [...state.customPalette] : state.palette;
+}
+
 function currentOptions() {
   return {
     theme: state.theme,
     material: currentMaterialOption(),
-    palette: state.palette,
+    palette: currentPaletteOption(),
     camera: { autoRotate: state.autoRotate },
     quality: { ...state.quality },
     pie: { ...state.pie, profile: state.pie.profile === 'wavy' ? WAVY_PROFILE : state.pie.profile },
@@ -175,6 +182,7 @@ const $ = (id) => document.getElementById(id);
 
 /* Chart type -------------------------------------------------------- */
 function activateChartType(btn) {
+  clearTimeout(dataUpdateTimer);
   state.type = btn.dataset.type;
   for (const tab of $('typeSeg').querySelectorAll('[role="tab"]')) {
     const active = tab === btn;
@@ -187,6 +195,7 @@ function activateChartType(btn) {
     $(id).hidden = hidden;
     $(id).classList.toggle('hidden', hidden);
   }
+  renderDataEditor();
   recreate();
 }
 
@@ -392,24 +401,171 @@ renderMaterialEditor();
 
 /* Palettes ------------------------------------------------------------ */
 const paletteList = $('paletteList');
-for (const [name, colors] of Object.entries(LustrePalettes)) {
-  const row = document.createElement('button');
-  row.type = 'button';
-  row.className = 'palette-row' + (name === state.palette ? ' active' : '');
-  row.setAttribute('aria-pressed', String(name === state.palette));
-  const dots = colors.slice(0, 6).map((c) => `<i style="background:${c};color:${c}"></i>`).join('');
-  row.innerHTML = `<span class="palette-dots">${dots}</span><span>${name}</span>`;
-  row.addEventListener('click', () => {
-    state.palette = name;
-    for (const r of paletteList.children) {
-      const active = r === row;
-      r.classList.toggle('active', active);
-      r.setAttribute('aria-pressed', String(active));
-    }
-    patch({ palette: state.palette });
-  });
-  paletteList.appendChild(row);
+const customPalettePanel = $('customPalettePanel');
+const customPaletteEditor = $('customPaletteEditor');
+
+function paletteColors(name = state.palette) {
+  return name === 'custom' ? state.customPalette : LustrePalettes[name];
 }
+
+function paletteDots(colors) {
+  return colors.slice(0, 6).map((color) =>
+    `<i style="background:${color};color:${color}"></i>`
+  ).join('');
+}
+
+function renderPaletteList() {
+  paletteList.replaceChildren();
+  const choices = [...Object.entries(LustrePalettes), ['custom', state.customPalette]];
+  for (const [name, colors] of choices) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.dataset.palette = name;
+    row.className = 'palette-row' + (name === state.palette ? ' active' : '');
+    row.setAttribute('aria-pressed', String(name === state.palette));
+    row.innerHTML = `<span class="palette-dots">${paletteDots(colors)}</span><span>${name}</span>`;
+    paletteList.appendChild(row);
+  }
+  renderCustomPaletteEditor();
+}
+
+function activatePalette(name) {
+  if (name === 'custom' && !state.customPaletteInitialized) {
+    state.customPalette = [...LustrePalettes[state.palette]];
+    state.customPaletteInitialized = true;
+  } else if (name !== 'custom') {
+    state.lastPresetPalette = name;
+  }
+  state.palette = name;
+  renderPaletteList();
+  renderDataEditor();
+  patch({ palette: currentPaletteOption() });
+}
+
+paletteList.addEventListener('click', (event) => {
+  const row = event.target.closest('[data-palette]');
+  if (row) activatePalette(row.dataset.palette);
+});
+
+function normalizeHexColor(value) {
+  const match = String(value).trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return null;
+  const hex = match[1].length === 3
+    ? [...match[1]].map((digit) => digit + digit).join('')
+    : match[1];
+  return `#${hex.toLowerCase()}`;
+}
+
+function renderCustomPaletteEditor() {
+  const custom = state.palette === 'custom';
+  customPalettePanel.hidden = !custom;
+  $('paletteStatus').textContent = custom ? `Custom · ${state.customPalette.length}` : 'Preset';
+  if (!custom) return;
+
+  customPaletteEditor.replaceChildren();
+  state.customPalette.forEach((color, index) => {
+    const row = document.createElement('div');
+    row.className = 'palette-color-row';
+    row.dataset.colorIndex = index;
+
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.value = color;
+    picker.dataset.paletteColor = 'picker';
+    picker.setAttribute('aria-label', `Custom palette color ${index + 1}`);
+
+    const hex = document.createElement('input');
+    hex.type = 'text';
+    hex.className = 'editor-input';
+    hex.value = color;
+    hex.dataset.paletteColor = 'hex';
+    hex.maxLength = 7;
+    hex.spellcheck = false;
+    hex.setAttribute('aria-label', `Custom palette color ${index + 1} hex`);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon-action';
+    remove.dataset.removePaletteColor = index;
+    remove.disabled = state.customPalette.length <= 2;
+    remove.setAttribute('aria-label', `Remove custom palette color ${index + 1}`);
+    remove.title = 'Remove color';
+    remove.textContent = '×';
+    row.append(picker, hex, remove);
+    customPaletteEditor.appendChild(row);
+  });
+  $('addPaletteColorBtn').disabled = state.customPalette.length >= 12;
+  $('paletteResetBtn').title = `Reset to ${state.lastPresetPalette}`;
+}
+
+function refreshCustomPalettePreview() {
+  const dots = paletteList.querySelector('[data-palette="custom"] .palette-dots');
+  if (dots) dots.innerHTML = paletteDots(state.customPalette);
+  $('paletteStatus').textContent = `Custom · ${state.customPalette.length}`;
+  renderDataEditor();
+}
+
+let paletteRaf = 0;
+function patchCustomPalette() {
+  cancelAnimationFrame(paletteRaf);
+  paletteRaf = requestAnimationFrame(() => patch({ palette: currentPaletteOption() }));
+}
+
+function setCustomPaletteColor(index, value) {
+  const color = normalizeHexColor(value);
+  if (!color) return false;
+  state.customPalette[index] = color;
+  const row = customPaletteEditor.querySelector(`[data-color-index="${index}"]`);
+  if (row) {
+    row.querySelector('[data-palette-color="picker"]').value = color;
+    row.querySelector('[data-palette-color="hex"]').value = color;
+    row.querySelector('[data-palette-color="hex"]').removeAttribute('aria-invalid');
+  }
+  refreshCustomPalettePreview();
+  patchCustomPalette();
+  return true;
+}
+
+customPaletteEditor.addEventListener('input', (event) => {
+  const input = event.target.closest('[data-palette-color]');
+  if (!input) return;
+  const index = Number(input.closest('[data-color-index]').dataset.colorIndex);
+  const valid = setCustomPaletteColor(index, input.value);
+  if (input.dataset.paletteColor === 'hex' && !valid) input.setAttribute('aria-invalid', 'true');
+});
+
+customPaletteEditor.addEventListener('change', (event) => {
+  const input = event.target.closest('[data-palette-color="hex"]');
+  if (input && !normalizeHexColor(input.value)) renderCustomPaletteEditor();
+});
+
+customPaletteEditor.addEventListener('click', (event) => {
+  const remove = event.target.closest('[data-remove-palette-color]');
+  if (!remove || state.customPalette.length <= 2) return;
+  state.customPalette.splice(Number(remove.dataset.removePaletteColor), 1);
+  renderPaletteList();
+  renderDataEditor();
+  patchCustomPalette();
+});
+
+$('addPaletteColorBtn').addEventListener('click', () => {
+  if (state.customPalette.length >= 12) return toast('Max 12 custom colors');
+  const source = LustrePalettes[state.lastPresetPalette] || LustrePalettes.aurora;
+  state.customPalette.push(source[state.customPalette.length % source.length]);
+  renderPaletteList();
+  renderDataEditor();
+  patchCustomPalette();
+});
+
+$('paletteResetBtn').addEventListener('click', () => {
+  state.customPalette = [...LustrePalettes[state.lastPresetPalette]];
+  renderPaletteList();
+  renderDataEditor();
+  patchCustomPalette();
+  toast(`Custom palette reset to ${state.lastPresetPalette}`);
+});
+
+renderPaletteList();
 
 /* Theme --------------------------------------------------------------- */
 const themeToggle = $('themeToggle');
@@ -610,6 +766,291 @@ $('t-bloom').addEventListener('change', (e) => {
 });
 
 /* Data ---------------------------------------------------------------------- */
+const dataEditor = $('dataEditor');
+const DATA_LIMITS = Object.freeze({ pie: 10, radial: 8, barCategories: 8, barSeries: 5 });
+let dataUpdateTimer = 0;
+
+function currentDataColors() {
+  return paletteColors().length ? paletteColors() : LustrePalettes.aurora;
+}
+
+function dataColor(index) {
+  const colors = currentDataColors();
+  return colors[index % colors.length];
+}
+
+function buildDataItemRow(item, index, kind) {
+  const row = document.createElement('div');
+  row.className = 'data-item-row';
+
+  const dot = document.createElement('i');
+  dot.className = 'data-color-dot';
+  dot.style.setProperty('--row-color', dataColor(index));
+
+  const name = document.createElement('input');
+  name.type = 'text';
+  name.className = 'editor-input';
+  name.value = item.label;
+  name.dataset.dataField = 'label';
+  name.dataset.dataIndex = index;
+  name.maxLength = 40;
+  name.setAttribute('aria-label', `${kind} ${index + 1} name`);
+
+  const value = document.createElement('input');
+  value.type = 'number';
+  value.className = 'editor-input';
+  value.value = item.value;
+  value.min = '0';
+  value.step = 'any';
+  if (state.type === 'radial') value.max = String(state.radial.maxValue);
+  value.dataset.dataField = 'value';
+  value.dataset.dataIndex = index;
+  value.setAttribute('aria-label', `${kind} ${index + 1} value`);
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'icon-action';
+  remove.dataset.removeDataIndex = index;
+  remove.disabled = (state.type === 'pie' ? pieData : radialData).length <= 2;
+  remove.setAttribute('aria-label', `Remove ${kind.toLowerCase()} ${index + 1}`);
+  remove.title = `Remove ${kind.toLowerCase()}`;
+  remove.textContent = '×';
+  row.append(dot, name, value, remove);
+  return row;
+}
+
+function renderSimpleDataEditor() {
+  const kind = state.type === 'radial' ? 'Ring' : 'Slice';
+  const items = state.type === 'radial' ? radialData : pieData;
+  const columns = document.createElement('div');
+  columns.className = 'data-editor-columns';
+  columns.setAttribute('aria-hidden', 'true');
+  columns.innerHTML = '<span></span><span>Name</span><span>Value</span><span></span>';
+  const list = document.createElement('div');
+  list.className = 'data-list';
+  items.forEach((item, index) => list.appendChild(buildDataItemRow(item, index, kind)));
+  dataEditor.append(columns, list);
+}
+
+function renderBarDataEditor() {
+  const seriesSection = document.createElement('section');
+  seriesSection.className = 'data-subsection';
+  const seriesTitle = document.createElement('div');
+  seriesTitle.className = 'data-subsection-title';
+  seriesTitle.innerHTML = '<span>Series</span>';
+  const addSeries = document.createElement('button');
+  addSeries.type = 'button';
+  addSeries.className = 'mini-btn';
+  addSeries.dataset.addBarSeries = '';
+  addSeries.disabled = barData.series.length >= DATA_LIMITS.barSeries;
+  addSeries.textContent = '＋ Series';
+  seriesTitle.appendChild(addSeries);
+  const seriesList = document.createElement('div');
+  seriesList.className = 'bar-series-list';
+  barData.series.forEach((series, seriesIndex) => {
+    const row = document.createElement('div');
+    row.className = 'bar-series-row';
+    const dot = document.createElement('i');
+    dot.className = 'data-color-dot';
+    dot.style.setProperty('--row-color', dataColor(seriesIndex));
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'editor-input';
+    name.value = series.name;
+    name.maxLength = 40;
+    name.dataset.dataField = 'series-name';
+    name.dataset.seriesIndex = seriesIndex;
+    name.setAttribute('aria-label', `Series ${seriesIndex + 1} name`);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon-action';
+    remove.dataset.removeBarSeries = seriesIndex;
+    remove.disabled = barData.series.length <= 1;
+    remove.setAttribute('aria-label', `Remove series ${seriesIndex + 1}`);
+    remove.title = 'Remove series';
+    remove.textContent = '×';
+    row.append(dot, name, remove);
+    seriesList.appendChild(row);
+  });
+  seriesSection.append(seriesTitle, seriesList);
+
+  const categoriesSection = document.createElement('section');
+  categoriesSection.className = 'data-subsection';
+  const categoriesTitle = document.createElement('div');
+  categoriesTitle.className = 'data-subsection-title';
+  categoriesTitle.textContent = 'Categories and values';
+  const categoryList = document.createElement('div');
+  categoryList.className = 'bar-category-list';
+  barData.categories.forEach((category, categoryIndex) => {
+    const card = document.createElement('div');
+    card.className = 'bar-category-card';
+    const head = document.createElement('div');
+    head.className = 'bar-category-head';
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'editor-input';
+    name.value = category;
+    name.maxLength = 40;
+    name.dataset.dataField = 'category-name';
+    name.dataset.categoryIndex = categoryIndex;
+    name.setAttribute('aria-label', `Category ${categoryIndex + 1} name`);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon-action';
+    remove.dataset.removeBarCategory = categoryIndex;
+    remove.disabled = barData.categories.length <= 2;
+    remove.setAttribute('aria-label', `Remove category ${categoryIndex + 1}`);
+    remove.title = 'Remove category';
+    remove.textContent = '×';
+    head.append(name, remove);
+
+    const values = document.createElement('div');
+    values.className = 'bar-value-grid';
+    barData.series.forEach((series, seriesIndex) => {
+      const field = document.createElement('label');
+      field.className = 'bar-value-field';
+      const label = document.createElement('span');
+      label.textContent = series.name;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'editor-input';
+      input.value = series.values[categoryIndex];
+      input.min = '0';
+      input.step = 'any';
+      input.dataset.dataField = 'bar-value';
+      input.dataset.seriesIndex = seriesIndex;
+      input.dataset.categoryIndex = categoryIndex;
+      input.setAttribute('aria-label', `${series.name}, ${category} value`);
+      field.append(label, input);
+      values.appendChild(field);
+    });
+    card.append(head, values);
+    categoryList.appendChild(card);
+  });
+  categoriesSection.append(categoriesTitle, categoryList);
+  dataEditor.append(seriesSection, categoriesSection);
+}
+
+function renderDataEditor() {
+  dataEditor.replaceChildren();
+  if (state.type === 'bar') {
+    $('dataStatus').textContent = `${barData.series.length} × ${barData.categories.length}`;
+    $('dataHint').textContent = 'Rename series and categories, then enter every value in the matrix.';
+    $('addBtn').textContent = '＋ Category';
+    $('removeBtn').textContent = '－ Last';
+    $('removeBtn').disabled = barData.categories.length <= 2;
+    renderBarDataEditor();
+  } else {
+    const radial = state.type === 'radial';
+    const items = radial ? radialData : pieData;
+    const noun = radial ? 'rings' : 'slices';
+    $('dataStatus').textContent = `${items.length} ${noun}`;
+    $('dataHint').textContent = radial
+      ? `Edit ring names and values from 0 to ${state.radial.maxValue}.`
+      : 'Edit slice names and non-negative values; percentages update automatically.';
+    $('addBtn').textContent = radial ? '＋ Ring' : '＋ Slice';
+    $('removeBtn').textContent = '－ Last';
+    $('removeBtn').disabled = items.length <= 2;
+    renderSimpleDataEditor();
+  }
+}
+
+function applyCurrentData({ render = false, animate = true } = {}) {
+  clearTimeout(dataUpdateTimer);
+  chart.setData(currentData(), animate);
+  if (render) renderDataEditor();
+  renderCode();
+}
+
+function queueDataUpdate() {
+  clearTimeout(dataUpdateTimer);
+  const commit = () => {
+    // Text/number fields can be edited while the page's entrance is still
+    // running. Calling setData during that phase restarts the entrance for
+    // every keystroke and can strand pie geometry at zero length. Keep the
+    // current chart visible, then commit one stable snapshot when it settles.
+    if (chart?._entranceProgress < 1) {
+      dataUpdateTimer = setTimeout(commit, 80);
+      return;
+    }
+    applyCurrentData({ animate: false });
+  };
+  dataUpdateTimer = setTimeout(commit, 100);
+}
+
+dataEditor.addEventListener('input', (event) => {
+  const input = event.target.closest('[data-data-field]');
+  if (!input) return;
+  const field = input.dataset.dataField;
+  if (field === 'label') {
+    const items = state.type === 'radial' ? radialData : pieData;
+    items[Number(input.dataset.dataIndex)].label = input.value;
+  } else if (field === 'value') {
+    const items = state.type === 'radial' ? radialData : pieData;
+    items[Number(input.dataset.dataIndex)].value = Math.max(0, Number(input.value) || 0);
+  } else if (field === 'series-name') {
+    const seriesIndex = Number(input.dataset.seriesIndex);
+    barData.series[seriesIndex].name = input.value;
+    for (const valueInput of dataEditor.querySelectorAll(
+      `[data-data-field="bar-value"][data-series-index="${seriesIndex}"]`
+    )) {
+      const category = barData.categories[Number(valueInput.dataset.categoryIndex)];
+      valueInput.closest('.bar-value-field').querySelector('span').textContent = input.value;
+      valueInput.setAttribute('aria-label', `${input.value}, ${category} value`);
+    }
+  } else if (field === 'category-name') {
+    const categoryIndex = Number(input.dataset.categoryIndex);
+    barData.categories[categoryIndex] = input.value;
+    for (const valueInput of dataEditor.querySelectorAll(
+      `[data-data-field="bar-value"][data-category-index="${categoryIndex}"]`
+    )) {
+      const series = barData.series[Number(valueInput.dataset.seriesIndex)];
+      valueInput.setAttribute('aria-label', `${series.name}, ${input.value} value`);
+    }
+  } else if (field === 'bar-value') {
+    barData.series[Number(input.dataset.seriesIndex)].values[Number(input.dataset.categoryIndex)]
+      = Math.max(0, Number(input.value) || 0);
+  }
+  renderCode();
+  queueDataUpdate();
+});
+
+dataEditor.addEventListener('click', (event) => {
+  const removeItem = event.target.closest('[data-remove-data-index]');
+  if (removeItem) {
+    const items = state.type === 'radial' ? radialData : pieData;
+    if (items.length <= 2) return;
+    items.splice(Number(removeItem.dataset.removeDataIndex), 1);
+    applyCurrentData({ render: true });
+    return;
+  }
+  const removeCategory = event.target.closest('[data-remove-bar-category]');
+  if (removeCategory) {
+    if (barData.categories.length <= 2) return;
+    const index = Number(removeCategory.dataset.removeBarCategory);
+    barData.categories.splice(index, 1);
+    barData.series.forEach((series) => series.values.splice(index, 1));
+    applyCurrentData({ render: true });
+    return;
+  }
+  const removeSeries = event.target.closest('[data-remove-bar-series]');
+  if (removeSeries) {
+    if (barData.series.length <= 1) return;
+    barData.series.splice(Number(removeSeries.dataset.removeBarSeries), 1);
+    applyCurrentData({ render: true });
+    return;
+  }
+  if (event.target.closest('[data-add-bar-series]')) {
+    if (barData.series.length >= DATA_LIMITS.barSeries) return toast('Max 5 series in the demo');
+    const index = barData.series.length;
+    barData.series.push({
+      name: `Series ${index + 1}`,
+      values: barData.categories.map(() => Math.round(20 + Math.random() * 100)),
+    });
+    applyCurrentData({ render: true });
+  }
+});
+
 $('randomBtn').addEventListener('click', () => {
   if (state.type === 'bar') {
     barData = {
@@ -624,29 +1065,27 @@ $('randomBtn').addEventListener('click', () => {
   } else {
     pieData = pieData.map((d) => ({ ...d, value: Math.round(5 + Math.random() * 40) }));
   }
-  chart.setData(currentData());
-  renderCode();
+  applyCurrentData({ render: true });
 });
 
 $('addBtn').addEventListener('click', () => {
   if (state.type === 'bar') {
-    if (barData.categories.length >= 8) return toast('Max 8 categories in the demo');
+    if (barData.categories.length >= DATA_LIMITS.barCategories) return toast('Max 8 categories in the demo');
     const q = `Q${barData.categories.length + 1}`;
     barData = {
       categories: [...barData.categories, q],
       series: barData.series.map((s) => ({ ...s, values: [...s.values, Math.round(20 + Math.random() * 100)] })),
     };
   } else if (state.type === 'radial') {
-    if (radialData.length >= 8) return toast('Max 8 rings in the demo');
+    if (radialData.length >= DATA_LIMITS.radial) return toast('Max 8 rings in the demo');
     const label = SLICE_NAMES[radialData.length % SLICE_NAMES.length];
     radialData = [...radialData, { label, value: Math.round(15 + Math.random() * 85) }];
   } else {
-    if (pieData.length >= 10) return toast('Max 10 slices in the demo');
+    if (pieData.length >= DATA_LIMITS.pie) return toast('Max 10 slices in the demo');
     const label = SLICE_NAMES[pieData.length % SLICE_NAMES.length];
     pieData = [...pieData, { label, value: Math.round(5 + Math.random() * 30) }];
   }
-  chart.setData(currentData());
-  renderCode();
+  applyCurrentData({ render: true });
 });
 
 $('removeBtn').addEventListener('click', () => {
@@ -663,9 +1102,10 @@ $('removeBtn').addEventListener('click', () => {
     if (pieData.length <= 2) return toast('Keep at least 2 slices');
     pieData = pieData.slice(0, -1);
   }
-  chart.setData(currentData());
-  renderCode();
+  applyCurrentData({ render: true });
 });
+
+renderDataEditor();
 
 /* Export --------------------------------------------------------------------- */
 $('pngBtn').addEventListener('click', () => {
