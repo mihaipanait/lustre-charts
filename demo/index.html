@@ -82,9 +82,23 @@
         <div class="material-editor" id="materialEditor"></div>
       </section>
 
-      <section class="card">
-        <h3>Palette</h3>
+      <section class="card" aria-labelledby="paletteTitle">
+        <div class="card-title-row">
+          <h3 id="paletteTitle">Palette</h3>
+          <span class="edit-count" id="paletteStatus">Preset</span>
+        </div>
         <div class="palette-list" id="paletteList" role="group" aria-label="Color palette"></div>
+        <div class="palette-editor" id="customPalettePanel" hidden>
+          <div class="editor-section-heading">
+            <div>
+              <strong>Custom colors</strong>
+              <span>Edit the colors in chart order.</span>
+            </div>
+            <button class="text-btn" id="paletteResetBtn" type="button">Reset</button>
+          </div>
+          <div class="palette-color-list" id="customPaletteEditor"></div>
+          <button class="btn editor-add-btn" id="addPaletteColorBtn" type="button">＋ Add color</button>
+        </div>
       </section>
 
       <section class="card" id="pieControls" role="tabpanel" aria-labelledby="typePieTab">
@@ -248,12 +262,17 @@
         </div>
       </section>
 
-      <section class="card">
-        <h3>Data</h3>
-        <div class="btn-row">
+      <section class="card data-card" aria-labelledby="dataTitle">
+        <div class="card-title-row">
+          <h3 id="dataTitle">Data</h3>
+          <span class="edit-count" id="dataStatus"></span>
+        </div>
+        <p class="editor-note" id="dataHint"></p>
+        <div class="data-editor" id="dataEditor"></div>
+        <div class="btn-row data-actions">
           <button class="btn" id="randomBtn">🎲 Randomize</button>
           <button class="btn" id="addBtn">＋ Add</button>
-          <button class="btn" id="removeBtn">－ Remove</button>
+          <button class="btn" id="removeBtn">－ Last</button>
         </div>
       </section>
 
