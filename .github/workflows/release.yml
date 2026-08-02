@@ -1,6 +1,6 @@
 # Publish lustre-charts to npm when a version tag is pushed. After a version
 # PR is merged, tag that main commit and push the tag:
-#   git tag -a v0.3.0 -m v0.3.0 && git push origin v0.3.0
+#   git tag -a v0.3.1 -m v0.3.1 && git push origin v0.3.1
 #
 # Uses npm "trusted publishing" (OIDC) — no npm token is stored in this
 # repo. One-time setup on npmjs.com (after the package's first manual
