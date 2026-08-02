@@ -45,6 +45,21 @@ test('profile presets produce closed finite strips and valid cap contours', () =
   }
 });
 
+test('quality segment controls increase curved profile and revolution density', () => {
+  const balancedRounded = buildProfile('rounded', dimensions, { roundedSegments: 8 });
+  const ultraRounded = buildProfile('rounded', dimensions, { roundedSegments: 16 });
+  const balancedTube = buildProfile('tube', dimensions, { tubeSegments: 32 });
+  const ultraTube = buildProfile('tube', dimensions, { tubeSegments: 64 });
+  assert.ok(ultraRounded.points.length > balancedRounded.points.length);
+  assert.ok(ultraTube.points.length > balancedTube.points.length);
+
+  const balancedGeometry = buildSliceGeometry(balancedRounded, 0, Math.PI * 2, { radialResolution: 256 });
+  const ultraGeometry = buildSliceGeometry(ultraRounded, 0, Math.PI * 2, { radialResolution: 512 });
+  assert.ok(ultraGeometry.getAttribute('position').count > balancedGeometry.getAttribute('position').count);
+  balancedGeometry.dispose();
+  ultraGeometry.dispose();
+});
+
 test('custom profiles normalize winding and explicit closure', () => {
   const clockwiseWithClosure = [
     { x: 1, y: -0.5 },

@@ -23,9 +23,9 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { TweenGroup } from './Tween.js';
 import { resolveTheme } from './themes.js';
-import { deepMerge, clamp, cssRGBA, disposeObject3D, el } from './utils.js';
+import { deepMerge, isPlainObject, clamp, cssRGBA, disposeObject3D, el } from './utils.js';
 import { DEFAULT_OPTIONS } from './defaults.js';
-import { cameraPatchNeedsFrame, resolveDpr } from './runtimeOptions.js';
+import { cameraPatchNeedsFrame, resolveDpr, resolveQuality } from './runtimeOptions.js';
 import { Tooltip } from '../overlay/Tooltip.js';
 import { Legend } from '../overlay/Legend.js';
 import { LabelOverlay } from '../overlay/LabelOverlay.js';
@@ -87,6 +87,7 @@ export class BaseChart {
     this.config = config;
     /** Fully merged options. */
     this.options = deepMerge(DEFAULT_OPTIONS, config.options || {});
+    this.quality = resolveQuality(this.options.quality);
     this.theme = resolveTheme(this.options.theme);
     this.tweens = new TweenGroup();
     this.destroyed = false;
@@ -135,6 +136,7 @@ export class BaseChart {
       alpha: true,
       powerPreference: 'high-performance',
     });
+    this.renderer.transmissionResolutionScale = this.quality.transmissionResolutionScale;
     this._dpr = resolveDpr(q.dpr, window.devicePixelRatio);
     this.renderer.setPixelRatio(this._dpr);
     this.renderer.setSize(this._size.w, this._size.h);
@@ -293,14 +295,22 @@ export class BaseChart {
   /* ---------------------------------------------------------------- */
 
   _buildEnvironment(kind) {
-    this._envTex?.dispose();
+    this._envTarget?.dispose();
     const studio = createStudioScene(kind);
-    // sigma 0: keep softbox reflections crisp; PMREM's own mip chain still
-    // provides the roughness blur levels.
-    this._envTex = this._pmrem.fromScene(studio, 0).texture;
+    // One cube texel of initial blur removes hard-card stair stepping while
+    // the higher-resolution PMREM preserves the softboxes' crisp character.
+    this._envTarget = this._pmrem.fromScene(
+      studio,
+      this.quality.environmentBlur,
+      0.1,
+      100,
+      { size: this.quality.environmentSize },
+    );
+    this._envTex = this._envTarget.texture;
     disposeStudioScene(studio);
     this.scene.environment = this._envTex;
     this._envKind = kind;
+    this._envQualityKey = `${this.quality.environmentSize}:${this.quality.environmentBlur}`;
   }
 
   /**
@@ -390,7 +400,16 @@ export class BaseChart {
    * exactly once when needed.
    */
   _applyBaseOptions(patch) {
+    const previousQuality = this.quality;
     this.options = deepMerge(this.options, patch);
+    // Material objects are complete preset configurations, not partial
+    // branches of one long-lived object. Replacing them atomically prevents
+    // controls from a previously selected preset leaking into the next one.
+    if (patch.material !== undefined) {
+      this.options.material = isPlainObject(patch.material)
+        ? deepMerge({}, patch.material)
+        : patch.material;
+    }
 
     if (patch.quality?.antialias !== undefined && !!patch.quality.antialias !== this._rendererAntialias) {
       this.options.quality.antialias = this._rendererAntialias;
@@ -398,6 +417,9 @@ export class BaseChart {
         '[lustre-charts] quality.antialias is constructor-only because changing it requires a new WebGL context'
       );
     }
+
+    this.quality = resolveQuality(this.options.quality);
+    this.renderer.transmissionResolutionScale = this.quality.transmissionResolutionScale;
 
     const themeChanged = patch.theme !== undefined;
     if (themeChanged) {
@@ -408,6 +430,14 @@ export class BaseChart {
         this.root.style.setProperty('--lustre-font', this.options.labels.fontFamily);
         this.labelOverlay.onTheme();
       }
+    }
+
+    const environmentQualityChanged =
+      previousQuality.environmentSize !== this.quality.environmentSize ||
+      previousQuality.environmentBlur !== this.quality.environmentBlur;
+    const environmentQualityKey = `${this.quality.environmentSize}:${this.quality.environmentBlur}`;
+    if (environmentQualityChanged && this._envQualityKey !== environmentQualityKey) {
+      this._buildEnvironment(this.theme.kind);
     }
 
     if (patch.quality?.dpr !== undefined) this._syncDpr();
@@ -686,7 +716,7 @@ export class BaseChart {
     disposeObject3D(this.scene);
     this.decorations.dispose();
     this._bgTex?.dispose();
-    this._envTex?.dispose();
+    this._envTarget?.dispose();
     this._pmrem?.dispose();
     this._bloomPass?.dispose();
     this.composer?.dispose?.();

@@ -142,6 +142,9 @@ export class PieChart extends BaseChart {
       radius: p.radius,
       height: p.height,
       cornerRadius: p.cornerRadius,
+    }, {
+      roundedSegments: this.quality.roundedSegments,
+      tubeSegments: this.quality.tubeSegments,
     });
   }
 
@@ -164,6 +167,62 @@ export class PieChart extends BaseChart {
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), spec.material);
       mesh.userData.itemIndex = item.index;
       group.add(mesh);
+
+      item.layers = [];
+      let layerTop = this.options.pie.height / 2;
+      const bandWidth = this.options.pie.radius - this.options.pie.innerRadius;
+      for (const layerSpec of spec.layers || []) {
+        const radialInset = Math.max(0.012, bandWidth * layerSpec.inset);
+        const layerHeight = Math.max(0.025, this.options.pie.height * layerSpec.height);
+        const innerRadius = this.options.pie.innerRadius > 0
+          ? this.options.pie.innerRadius + radialInset
+          : 0;
+        const radius = Math.max(innerRadius + 0.02, this.options.pie.radius - radialInset);
+        const profile = buildProfile('rounded', {
+          innerRadius,
+          radius,
+          height: layerHeight,
+          cornerRadius: Math.min(
+            this.options.pie.cornerRadius * 0.72,
+            layerHeight * 0.42,
+            (radius - innerRadius) * 0.34,
+          ),
+        }, {
+          roundedSegments: this.quality.roundedSegments,
+          tubeSegments: this.quality.tubeSegments,
+        });
+        const layerMesh = new THREE.Mesh(new THREE.BufferGeometry(), layerSpec.material);
+        const layerBottom = layerTop - layerHeight * (layerSpec.embed ?? 0);
+        layerMesh.position.y = layerBottom + layerHeight / 2;
+        group.add(layerMesh);
+
+        let layerOutline = null;
+        if (layerSpec.outline) {
+          const lineMat = new LineMaterial({
+            color: layerSpec.outline.color,
+            linewidth: layerSpec.outline.widthPx,
+            transparent: true,
+            opacity: layerSpec.outline.opacity,
+            depthWrite: false,
+            toneMapped: false,
+          });
+          this.registerLineMaterial(lineMat);
+          layerOutline = new LineSegments2(new LineSegmentsGeometry(), lineMat);
+          layerOutline.position.y = layerMesh.position.y;
+          layerOutline.visible = false;
+          group.add(layerOutline);
+        }
+        item.layers.push({
+          spec: layerSpec,
+          mesh: layerMesh,
+          outline: layerOutline,
+          profile,
+          radialInset,
+          centerRadius: (innerRadius + radius) / 2,
+        });
+        layerTop = Math.max(layerTop, layerBottom + layerHeight);
+      }
+      item.topY = layerTop;
 
       if (spec.outline) {
         const lineMat = new LineMaterial({
@@ -195,6 +254,15 @@ export class PieChart extends BaseChart {
       if (!it.group) continue;
       it.mesh.geometry.dispose();
       it.spec.material.dispose();
+      for (const layer of it.layers || []) {
+        layer.mesh.geometry.dispose();
+        layer.spec.material.dispose();
+        if (layer.outline) {
+          layer.outline.geometry.dispose();
+          this._lineMaterials.delete(layer.outline.material);
+          layer.outline.material.dispose();
+        }
+      }
       if (it.outline) {
         it.outline.geometry.dispose();
         this._lineMaterials.delete(it.outline.material);
@@ -275,20 +343,41 @@ export class PieChart extends BaseChart {
 
   _flushGeometry() {
     if (!this._dirtySet || this._dirtySet.size === 0) return;
+    const geometryOptions = { radialResolution: this.quality.radialResolution };
     for (const item of this._dirtySet) {
       const { start, length } = item.anim;
       const show = length > 0.0005;
       item.mesh.visible = show;
       if (item.outline) item.outline.visible = show;
+      for (const layer of item.layers || []) {
+        layer.mesh.visible = show;
+        if (layer.outline) layer.outline.visible = show;
+      }
       if (!show) continue;
 
       item.mesh.geometry.dispose();
-      item.mesh.geometry = buildSliceGeometry(this._profile, start, length);
+      item.mesh.geometry = buildSliceGeometry(this._profile, start, length, geometryOptions);
+
+      for (const layer of item.layers || []) {
+        const angularInset = length >= TAU - 1e-4
+          ? 0
+          : Math.min((layer.radialInset * 0.7) / Math.max(layer.centerRadius, 0.05), length * 0.2);
+        const layerStart = start + angularInset;
+        const layerLength = Math.max(1e-5, length - angularInset * 2);
+        layer.mesh.geometry.dispose();
+        layer.mesh.geometry = buildSliceGeometry(layer.profile, layerStart, layerLength, geometryOptions);
+        if (layer.outline) {
+          layer.outline.geometry.dispose();
+          const layerGeo = new LineSegmentsGeometry();
+          layerGeo.setPositions(buildSliceOutlinePositions(layer.profile, layerStart, layerLength, geometryOptions));
+          layer.outline.geometry = layerGeo;
+        }
+      }
 
       if (item.outline) {
         item.outline.geometry.dispose();
         const geo = new LineSegmentsGeometry();
-        geo.setPositions(buildSliceOutlinePositions(this._profile, start, length));
+        geo.setPositions(buildSliceOutlinePositions(this._profile, start, length, geometryOptions));
         item.outline.geometry = geo;
       }
       this._applyOffset(item);

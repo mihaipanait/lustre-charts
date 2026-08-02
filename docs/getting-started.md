@@ -8,7 +8,7 @@
 npm install lustre-charts three
 ```
 
-`three` is a peer dependency (`>= 0.167.0 < 0.186.0`) — you control the
+`three` is a peer dependency (`>= 0.175.0 < 0.186.0`) — you control the
 version. CI exercises the range floor and the current latest release.
 
 TypeScript declarations are included. TypeScript projects should install the
@@ -30,8 +30,8 @@ Lustre ships as plain ES modules, so a static server plus an import map is a com
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
     "lustre-charts": "https://cdn.jsdelivr.net/npm/lustre-charts/src/index.js"
   }
 }
@@ -150,10 +150,18 @@ in place. `quality.antialias` is the exception: set it during construction
 because WebGL cannot change MSAA on an existing context. See
 [runtime option behavior](configuration.md#runtime-option-behavior).
 
+Lustre defaults to reference-quality rendering. Applications displaying many
+simultaneous charts can switch tiers at construction or runtime:
+
+```js
+chart.applyOptions({ quality: { preset: 'balanced' } });
+chart.applyOptions({ quality: { preset: 'ultra' } });
+```
+
 ## Next steps
 
 - Skim the [configuration reference](configuration.md) — everything is an option.
-- Try the [materials & theming guide](materials-and-theming.md) for the six looks.
+- Try the [materials & theming guide](materials-and-theming.md) for all thirteen looks.
 - Chart specifics: [pie/donut](charts/pie.md), [radial](charts/radial.md), [bar](charts/bar.md).
 - Or just open the demo (`npm run dev` → `http://localhost:5173/demo/`) and copy
   the generated config.

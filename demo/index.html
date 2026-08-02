@@ -13,8 +13,8 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
       "lustre-charts": "../src/index.js"
     }
   }
@@ -62,8 +62,24 @@
       </section>
 
       <section class="card">
-        <h3>Material</h3>
+        <h3>Material lab <span class="count-badge">13 finishes</span></h3>
         <div class="chip-grid" id="materialGrid" role="group" aria-label="Material preset"></div>
+        <p class="material-note" id="materialNote" aria-live="polite"></p>
+      </section>
+
+      <section class="card material-editor-card" aria-labelledby="materialEditorTitle">
+        <div class="card-title-row">
+          <h3 id="materialEditorTitle">Material settings</h3>
+          <span class="edit-count" id="materialEditCount">Defaults</span>
+        </div>
+        <div class="material-editor-heading">
+          <div>
+            <strong id="materialEditorName">Glossy</strong>
+            <span id="materialEditorHint">Automotive clearcoat controls</span>
+          </div>
+          <button class="text-btn" id="materialResetBtn" type="button" disabled>Reset</button>
+        </div>
+        <div class="material-editor" id="materialEditor"></div>
       </section>
 
       <section class="card">
@@ -174,6 +190,49 @@
           <label class="switch"><input type="checkbox" id="t-rotate" /><i></i><span>Auto rotate</span></label>
         </div>
         <button class="btn btn-accent" id="replayBtn">⟲&nbsp; Replay entrance</button>
+      </section>
+
+      <section class="card">
+        <div class="card-title-row">
+          <h3>Quality lab</h3>
+          <button class="text-btn" id="qualityResetBtn" type="button">Reset tier</button>
+        </div>
+        <label class="row">
+          <span>Preset</span>
+          <select id="qualitySelect" aria-label="Rendering quality">
+            <option value="balanced">Balanced</option>
+            <option value="ultra" selected>Ultra</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>PMREM face</span>
+          <select id="q-environment-size" aria-label="PMREM cube face size">
+            <option value="512">512 px</option>
+            <option value="1024" selected>1024 px · heavy</option>
+            <option value="2048">2048 px · experimental</option>
+          </select>
+        </label>
+        <label class="slider-row">
+          <span>PMREM blur <em id="v-environment-blur"></em></span>
+          <input type="range" id="q-environment-blur" min="0" max="0.03" step="0.0001" value="0.0035" />
+        </label>
+        <label class="slider-row">
+          <span>Angular segments <em id="v-radial-resolution"></em></span>
+          <input type="range" id="q-radial-resolution" min="24" max="512" step="1" value="256" />
+        </label>
+        <label class="slider-row">
+          <span>Rounded corners <em id="v-rounded-segments"></em></span>
+          <input type="range" id="q-rounded-segments" min="1" max="16" step="1" value="16" />
+        </label>
+        <label class="slider-row">
+          <span>Tube profile <em id="v-tube-segments"></em></span>
+          <input type="range" id="q-tube-segments" min="8" max="64" step="1" value="64" />
+        </label>
+        <label class="slider-row">
+          <span>Transmission scale <em id="v-transmission-scale"></em></span>
+          <input type="range" id="q-transmission-scale" min="0.25" max="1" step="0.05" value="1" />
+        </label>
+        <p class="quality-note">Raw values are exported with the config. 2048px PMREM is an experimental, high-memory setting.</p>
       </section>
 
       <section class="card">

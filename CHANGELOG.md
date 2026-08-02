@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-02
+
+### Added
+
+- Add seven material presets: toon, procedural halftone, opaque
+  iridescence, dispersive crystal, frosted acrylic, velvet sheen, and
+  inset enamel with one solid-white face physically embedded in its backing.
+- Add material-lab descriptions and swatches to the interactive demo.
+- Add a live per-preset material editor with curated surface, optical,
+  outline, procedural shader, and inset-layer controls; edited settings are
+  preserved per material and included in exported demo configurations.
+- Add nested `layer` and `shader` material overrides plus relative physical
+  `thicknessScale`, `attenuationScale`, and `environmentScale` controls.
+- Add editable `surfaceSide` rendering for glass, crystal, and acrylic.
+- Add balanced and ultra quality tiers. Ultra is the new reference-quality
+  default with a 512px softly prefiltered PMREM and bounded 256/16/64 angular,
+  rounded, and tube tessellation; all constituent settings remain overridable.
+- Add 1024px showcase and experimental 2048px PMREM choices to the demo while
+  retaining lower 64–256px environment sizes for explicit configuration.
+
+### Changed
+
+- Rework glass, crystal, and acrylic as genuinely transmissive, double-sided
+  volumes with geometry-aware thickness, clearer internal surfaces, and more
+  restrained reflection and emission tuning.
+- Set glass-family tint-distance scaling to 0.15 by default and allow zero in
+  the material editor through a shader-safe lower bound.
+- Raise the angular tessellation default to 256 and expose expert overrides up
+  to 512 for smoother reflections on highly polished metallic surfaces.
+- Raise the supported Three.js peer dependency floor from 0.167 to 0.175.
+
+### Fixed
+
+- Reduce staircase artifacts in sharp studio reflections with configurable
+  high-resolution PMREM generation, subtle prefiltering, and denser geometry.
+- Replace the original shader-only inset treatment with one embedded top layer
+  so the material reads as a physical face rather than stacked surface bands.
+
 ## [0.2.1] — 2026-08-01
 
 ### Changed

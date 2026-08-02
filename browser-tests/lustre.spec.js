@@ -20,7 +20,7 @@ test('runtime option and lifecycle regression harness passes', async ({ page }) 
 
 test('demo exposes operable chart, material, palette, and theme controls', async ({ page }) => {
   const errors = collectPageErrors(page);
-  await page.goto('/demo/');
+  await page.goto('/demo/?quality=balanced');
 
   await expect(page.getByRole('heading', { name: 'Lustre', level: 1 })).toBeVisible();
   const pieTab = page.getByRole('tab', { name: 'Pie / Donut' });
@@ -48,12 +48,65 @@ test('demo exposes operable chart, material, palette, and theme controls', async
   await theme.click();
   await expect(page.getByRole('button', { name: 'Switch to dark theme' }))
     .toHaveAttribute('aria-pressed', 'true');
+
+  const quality = page.getByRole('combobox', { name: 'Rendering quality' });
+  await expect(quality).toHaveValue('balanced');
+  await page.getByRole('combobox', { name: 'PMREM cube face size' }).selectOption('1024');
+  await page.getByRole('slider', { name: 'Angular segments' }).fill('512');
+  await expect(page.locator('#codeView')).toContainText('"environmentSize": 1024');
+  await expect(page.locator('#codeView')).toContainText('"radialResolution": 512');
+  expect(await page.evaluate(() => window.chart.quality.environmentSize)).toBe(1024);
+  expect(await page.evaluate(() => window.chart.quality.radialResolution)).toBe(512);
+  expect(await page.evaluate(() => ({
+    width: window.chart._envTarget.width,
+    height: window.chart._envTarget.height,
+  }))).toEqual({ width: 3072, height: 4096 });
+  expect(errors).toEqual([]);
+});
+
+test('material editor applies, retains, resets, and exports preset-specific overrides', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/demo/?quality=balanced');
+  const materialGroup = page.getByRole('group', { name: 'Material preset' });
+  const editor = page.getByRole('region', { name: 'Material settings' });
+  await page.getByRole('combobox', { name: 'Entrance' }).selectOption('none');
+  const presets = ['glass', 'toon', 'halftone', 'iridescent', 'inset'];
+
+  for (const preset of presets) {
+    await materialGroup.getByRole('button', { name: preset, exact: true }).click();
+    await expect(page.locator('#materialEditor')).toHaveAttribute('data-preset', preset);
+    expect(await editor.locator('input').count()).toBeGreaterThan(0);
+  }
+
+  await materialGroup.getByRole('button', { name: 'toon', exact: true }).click();
+  await editor.getByRole('textbox', { name: 'Outline color', exact: true }).fill('#ffffff');
+  await editor.getByRole('slider', { name: 'Outline width', exact: true }).fill('4.2');
+  await expect(editor).toContainText('2 customized');
+  await expect(page.locator('#codeView')).toContainText('"color": "#ffffff"');
+  await expect(page.locator('#codeView')).toContainText('"widthPx": 4.2');
+
+  await materialGroup.getByRole('button', { name: 'inset', exact: true }).click();
+  await editor.getByRole('textbox', { name: 'Face color', exact: true }).fill('#f6c945');
+  await editor.getByRole('slider', { name: 'Face inset', exact: true }).fill('0.18');
+  await expect(page.locator('#codeView')).toContainText('"layer"');
+  await expect(page.locator('#codeView')).toContainText('"inset": 0.18');
+
+  await materialGroup.getByRole('button', { name: 'toon', exact: true }).click();
+  const retained = await page.evaluate(() => window.chart.options.material);
+  expect(retained).toEqual({
+    preset: 'toon',
+    outline: { color: '#ffffff', widthPx: 4.2 },
+  });
+  await editor.getByRole('button', { name: 'Reset', exact: true }).click();
+  await expect(editor).toContainText('Defaults');
+  await expect(page.locator('#codeView')).toContainText('"material": "toon"');
+  expect(await page.evaluate(() => window.chart.options.material)).toBe('toon');
   expect(errors).toEqual([]);
 });
 
 test('drag gestures suppress segment hover until the pointer moves intentionally again', async ({ page }) => {
   const errors = collectPageErrors(page);
-  await page.goto('/demo/');
+  await page.goto('/demo/?quality=balanced');
   await page.getByRole('img', { name: /Pie chart/ }).waitFor();
 
   const interaction = await page.evaluate(() => {
@@ -102,12 +155,57 @@ test('drag gestures suppress segment hover until the pointer moves intentionally
   expect(errors).toEqual([]);
 });
 
+test('layered inset builds and animates real plate geometry on every chart type', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/demo/?quality=balanced');
+  await page.getByRole('group', { name: 'Material preset' })
+    .getByRole('button', { name: 'inset', exact: true })
+    .click();
+
+  const expectLayerStack = async () => {
+    const state = await page.evaluate(() => ({
+      itemCount: window.chart.items.length,
+      valid: window.chart.items.every((item) =>
+        item.layers?.length === 1 &&
+        item.layers.every((layer) =>
+          Number.isFinite(layer.mesh.position.y) &&
+          layer.mesh.geometry.attributes.position.count > 0
+        )
+      ),
+    }));
+    expect(state.itemCount).toBeGreaterThan(0);
+    expect(state.valid).toBe(true);
+  };
+
+  await page.waitForTimeout(1_700);
+  await expectLayerStack();
+
+  await page.getByRole('tab', { name: 'Radial' }).click();
+  await page.waitForTimeout(1_700);
+  await expectLayerStack();
+
+  await page.getByRole('tab', { name: 'Bar' }).click();
+  await page.waitForTimeout(1_700);
+  await expectLayerStack();
+
+  await page.getByRole('button', { name: '⟲ Replay entrance' }).click();
+  await page.waitForTimeout(320);
+  const synchronized = await page.evaluate(() => window.chart.items.every((item) =>
+    item.layers.every((layer) =>
+      Math.abs(layer.mesh.scale.y - item.mesh.scale.y) < 1e-6 &&
+      Number.isFinite(layer.mesh.position.y)
+    )
+  ));
+  expect(synchronized).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test.describe('mobile sizing', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('pie callouts and grouped bars remain within the stage', async ({ page }) => {
     const errors = collectPageErrors(page);
-    await page.goto('/demo/');
+    await page.goto('/demo/?quality=balanced');
     await page.getByRole('img', { name: /Pie chart/ }).waitFor();
     await page.waitForTimeout(1_800);
 

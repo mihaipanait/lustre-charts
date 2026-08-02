@@ -5,6 +5,7 @@ import {
   cameraPatchNeedsFrame,
   optionPatchNeedsRebuild,
   resolveDpr,
+  resolveQuality,
 } from '../src/core/runtimeOptions.js';
 
 test('resolves automatic and explicit device pixel ratios safely', () => {
@@ -23,6 +24,42 @@ test('identifies camera patches that intentionally replace the viewpoint', () =>
   assert.equal(cameraPatchNeedsFrame({ controls: { enableZoom: false } }), false);
 });
 
+test('resolves balanced and ultra quality tiers with safe expert overrides', () => {
+  assert.deepEqual(resolveQuality({ preset: 'balanced' }), {
+    preset: 'balanced',
+    environmentSize: 256,
+    environmentBlur: 0.006,
+    transmissionResolutionScale: 1,
+    radialResolution: 256,
+    roundedSegments: 8,
+    tubeSegments: 32,
+  });
+  assert.deepEqual(resolveQuality({ preset: 'ultra' }), {
+    preset: 'ultra',
+    environmentSize: 512,
+    environmentBlur: 0.0035,
+    transmissionResolutionScale: 1,
+    radialResolution: 256,
+    roundedSegments: 16,
+    tubeSegments: 64,
+  });
+  const custom = resolveQuality({
+    environmentSize: 3000,
+    environmentBlur: -1,
+    transmissionResolutionScale: 2,
+    radialResolution: 999,
+    roundedSegments: 0,
+    tubeSegments: 999,
+  });
+  assert.equal(custom.environmentSize, 2048);
+  assert.equal(custom.environmentBlur, 0);
+  assert.equal(custom.transmissionResolutionScale, 1);
+  assert.equal(custom.radialResolution, 512);
+  assert.equal(custom.roundedSegments, 1);
+  assert.equal(custom.tubeSegments, 64);
+  assert.equal(resolveQuality({ environmentSize: 64 }).environmentSize, 64);
+});
+
 test('rebuilds only options that change chart meshes or materials', () => {
   assert.equal(optionPatchNeedsRebuild({ theme: 'light' }, 'pie'), true);
   assert.equal(optionPatchNeedsRebuild({ material: 'metal' }, 'pie'), true);
@@ -31,5 +68,9 @@ test('rebuilds only options that change chart meshes or materials', () => {
   assert.equal(optionPatchNeedsRebuild({ radial: { ringGap: 0.12 } }, 'radial'), true);
   assert.equal(optionPatchNeedsRebuild({ bar: { maxHeight: 4 } }, 'bar'), true);
   assert.equal(optionPatchNeedsRebuild({ quality: { dpr: 1 } }, 'pie'), false);
+  assert.equal(optionPatchNeedsRebuild({ quality: { environmentSize: 512 } }, 'pie'), false);
+  assert.equal(optionPatchNeedsRebuild({ quality: { preset: 'balanced' } }, 'pie'), true);
+  assert.equal(optionPatchNeedsRebuild({ quality: { radialResolution: 144 } }, 'radial'), true);
+  assert.equal(optionPatchNeedsRebuild({ quality: { roundedSegments: 12 } }, 'bar'), false);
   assert.equal(optionPatchNeedsRebuild({ labels: { show: false } }, 'bar'), false);
 });

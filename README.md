@@ -39,7 +39,7 @@ Everything else is *look and feel*:
 
 | | |
 |---|---|
-| 🎨 **6 material presets** | `glossy` · `glass` · `metal` · `neon` · `hologram` · `matte` — physically based, tuned per theme, every parameter overridable |
+| 🎨 **13 material presets** | PBR, translucent, spectral, fabric, toon, procedural print, and inset finishes — tuned per theme and overridable |
 | 🌗 **Themes** | `dark`, `light`, fully custom objects, transparent backgrounds |
 | 🌈 **8 palettes** | aurora, neon, metal, candy, ocean, sunset, violet, mono — or any color array, auto-extended for large datasets |
 | ✨ **Effects** | bloom post-processing, neon grid floor, HUD rings, floating particles, soft contact shadow |
@@ -106,8 +106,8 @@ Lustre is plain ES modules — an import map is all you need:
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
     "lustre-charts": "https://cdn.jsdelivr.net/npm/lustre-charts/src/index.js"
   }
 }
@@ -127,7 +127,20 @@ Lustre is plain ES modules — an import map is all you need:
 options: { material: 'neon' }        // bloom auto-enables, rim lines appear
 options: { material: 'metal', palette: 'metal' }   // brushed gold/silver/copper
 options: { material: { preset: 'glass', roughness: 0.02, ior: 1.8 } } // override anything
+options: { material: { preset: 'toon', outline: { color: '#fff', widthPx: 4 } } }
 ```
+
+### Reference or balanced quality
+
+```js
+options: { quality: { preset: 'ultra' } }     // 512px reflections, 256-segment curves (default)
+options: { quality: { preset: 'balanced' } }  // lighter 256px environment and geometry
+```
+
+Both tiers keep physical transmission at full resolution. Individual PMREM,
+profile, and angular-segment settings can also be overridden, including
+64–2048px PMREM faces. The demo intentionally starts at 1024px for close
+inspection; 2048px is available there as a high-memory experiment.
 
 ### Cross-section profiles
 
@@ -241,7 +254,7 @@ src/
 ├── core/             BaseChart rig · tween engine · themes · palettes · utils
 ├── charts/           PieChart · RadialChart · BarChart
 ├── geometry/         profile revolve + cap builder, outline builder
-├── materials/        the six presets (physically based)
+├── materials/        the thirteen PBR and graphic presets
 ├── overlay/          SVG callout labels · tooltip · legend
 └── fx/               studio environment · bloom · grid/rings/particles/shadow
 ```
@@ -253,7 +266,9 @@ src/
 ## Browser support
 
 Any evergreen browser with WebGL2. The supported and continuously tested
-three.js range is `>= 0.167.0 < 0.186.0`.
+three.js range is `>= 0.175.0 < 0.186.0`. r175 is the minimum because it adds
+the variable-size `PMREMGenerator.fromScene()` API used by Lustre's reflection
+quality controls.
 
 ## Vibe coded
 

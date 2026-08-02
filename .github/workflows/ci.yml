@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        three-version: ['0.167.0', 'latest']
+        three-version: ['0.175.0', 'latest']
     name: Browser / Three.js ${{ matrix.three-version }}
     steps:
       - name: Checkout

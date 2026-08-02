@@ -2,10 +2,12 @@
  * @module materials/materials
  * The material preset system — the visual soul of Lustre.
  *
- * Every preset is built on `THREE.MeshPhysicalMaterial` and tuned against a
+ * Most presets are built on `THREE.MeshPhysicalMaterial` and tuned against a
  * procedural studio environment (see BaseChart), so metals and glass get
- * believable reflections with zero texture downloads. Presets are named
- * after mineralogical lustre categories where it fits:
+ * believable reflections with zero texture downloads. Graphic presets use
+ * Three's toon shader or small shader augmentations while keeping the same
+ * interaction contract. Presets are named after mineralogical lustre
+ * categories where it fits:
  *
  *  - `glossy`    candy / automotive clearcoat (the classic infographic look)
  *  - `glass`     tinted refractive glass with absorption + slight dispersion
@@ -13,6 +15,13 @@
  *  - `neon`      translucent emissive body + glowing rim lines (wants bloom)
  *  - `hologram`  iridescent translucent "sci-fi UI" material
  *  - `matte`     soft clean matte for minimal dashboards
+ *  - `toon`      stepped lighting and heavy editorial ink outlines
+ *  - `halftone`  procedural comic dots with no downloaded texture
+ *  - `iridescent` opaque, view-dependent thin-film color
+ *  - `crystal`   highly polished dispersive glass
+ *  - `acrylic`   softly frosted translucent polymer
+ *  - `velvet`    grazing-angle fabric sheen
+ *  - `inset`     colored backing with one inset solid-white face
  *
  * A preset is resolved via {@link createItemMaterial} which returns the
  * material plus hints the charts use (hover glow targets, outline specs).
@@ -21,7 +30,70 @@
 import * as THREE from 'three';
 
 /** Preset names, in display order. */
-export const MATERIAL_PRESETS = ['glossy', 'glass', 'metal', 'neon', 'hologram', 'matte'];
+export const MATERIAL_PRESETS = [
+  'glossy', 'glass', 'metal', 'neon', 'hologram', 'matte',
+  'toon', 'halftone', 'iridescent', 'crystal', 'acrylic', 'velvet', 'inset',
+];
+
+const SHARP_EDGE_PRESETS = new Set(['neon', 'toon', 'halftone']);
+const TINTED_VOLUME_PRESETS = new Set(['glass', 'crystal', 'acrylic']);
+const DEFAULT_ATTENUATION_SCALE = 0.15;
+const SAFE_MIN_ATTENUATION_DISTANCE = 1e-4;
+
+/** Four luminance steps keep the toon look graphic without crushing form. */
+let toonGradient = null;
+function getToonGradient() {
+  if (toonGradient) return toonGradient;
+  toonGradient = new THREE.DataTexture(
+    new Uint8Array([35, 102, 188, 255]),
+    4,
+    1,
+    THREE.RedFormat,
+  );
+  toonGradient.minFilter = THREE.NearestFilter;
+  toonGradient.magFilter = THREE.NearestFilter;
+  toonGradient.generateMipmaps = false;
+  toonGradient.needsUpdate = true;
+  return toonGradient;
+}
+
+/**
+ * Add a small object-space procedural surface treatment to a stock material.
+ * This preserves Three's full lighting, shadows, tone mapping, and PBR stack.
+ * @param {THREE.Material} material
+ * @param {string} key
+ * @param {{ fragmentBody: string, uniforms?: Record<string, number> }} treatment
+ *   GLSL inserted immediately after base color plus editable float uniforms.
+ */
+function addSurfaceTreatment(material, key, treatment) {
+  const uniformEntries = Object.entries(treatment.uniforms || {}).map(([name, value]) => {
+    const glslName = `uLustre${name[0].toUpperCase()}${name.slice(1)}`;
+    return [name, glslName, { value }];
+  });
+  material.userData.lustreShader = {
+    key,
+    uniforms: Object.fromEntries(uniformEntries.map(([name, _glslName, uniform]) => [name, uniform])),
+  };
+  material.onBeforeCompile = (shader) => {
+    const varyings = `
+varying vec3 vLustrePosition;
+varying vec3 vLustreNormal;
+varying vec2 vLustreUv;`;
+    const declarations = uniformEntries.map(([_name, glslName]) => `uniform float ${glslName};`).join('\n');
+    shader.uniforms ||= {};
+    for (const [_name, glslName, uniform] of uniformEntries) shader.uniforms[glslName] = uniform;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>${varyings}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+  vLustrePosition = position;
+  vLustreNormal = normal;
+  vLustreUv = uv;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>${varyings}\n${declarations}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${treatment.fragmentBody}`);
+  };
+  material.customProgramCacheKey = () => `lustre-surface-${key}-v1`;
+}
 
 /**
  * Push a color toward candy-pigment saturation. White studio light plus
@@ -43,11 +115,17 @@ function pigment(c, satBoost = 1.25, maxLum = 0.3) {
 
 /**
  * @typedef {object} MaterialSpec
- * @property {THREE.MeshPhysicalMaterial} material
+ * @property {THREE.MeshPhysicalMaterial | THREE.MeshToonMaterial} material
  * @property {number} hoverEmissive   emissiveIntensity target while hovered
  * @property {number} baseEmissive    resting emissiveIntensity
  * @property {{ color: THREE.Color, opacity: number, widthPx: number } | null} outline
  *   When set, charts add glowing rim lines (neon / hologram looks).
+ * @property {Array<{ material: THREE.MeshPhysicalMaterial, inset: number,
+ *   height: number, embed: number, outline: { color: THREE.Color,
+ *   opacity: number, widthPx: number } | null }> | null} layers
+ *   Optional stacked plates. `inset` and `height` are fractions of the
+ *   chart's local footprint and reference thickness; `embed` is the fraction
+ *   of plate height sunk into the base.
  * @property {boolean} wantsBloom     preset looks best with bloom enabled
  */
 
@@ -57,7 +135,8 @@ function pigment(c, satBoost = 1.25, maxLum = 0.3) {
  * @param {object} cfg
  * @param {string | object} cfg.material  preset name, or `{ preset, ...overrides }`
  *   where overrides are any MeshPhysicalMaterial properties (roughness,
- *   transmission, emissiveIntensity …) plus `outline: false` to suppress rims.
+ *   transmission, emissiveIntensity …), `outline`, `layer`, `shader`, and
+ *   relative `thicknessScale` / `attenuationScale` controls.
  * @param {string} cfg.color   item base color (hex)
  * @param {import('../core/themes.js').LustreTheme} cfg.theme
  * @param {number} [cfg.thickness]  reference thickness for glass absorption
@@ -75,32 +154,38 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
     hoverEmissive: 0.35,
     baseEmissive: 0,
     outline: null,
+    layers: null,
     wantsBloom: false,
   };
 
   switch (preset) {
     case 'glass': {
+      const glassWhite = new THREE.Color('#ffffff');
       spec.material = new THREE.MeshPhysicalMaterial({
-        color: base.clone().lerp(new THREE.Color('#ffffff'), 0.4),
-        roughness: dark ? 0.13 : 0.06,
+        // Keep the surface almost colorless and put the tint in the volume.
+        // A strongly colored surface plus emissive light reads as resin even
+        // when transmission is physically set to 1.
+        color: base.clone().lerp(glassWhite, dark ? 0.72 : 0.58),
+        roughness: dark ? 0.08 : 0.045,
         metalness: 0,
         transmission: 1,
-        thickness: Math.max(0.35, thickness * 0.8),
+        thickness: Math.max(0.28, thickness * 0.52),
         ior: 1.5,
-        attenuationColor: base.clone(),
-        attenuationDistance: thickness * 3.2,
+        side: THREE.DoubleSide,
+        attenuationColor: base.clone().lerp(glassWhite, 0.28),
+        attenuationDistance: Math.max(2.6, thickness * (dark ? 10 : 6.5)),
         clearcoat: 1,
-        clearcoatRoughness: 0.06,
+        clearcoatRoughness: 0.035,
         specularIntensity: 1,
-        iridescence: 0.14,
+        iridescence: 0.09,
         iridescenceIOR: 1.3,
-        envMapIntensity: (dark ? 1.7 : 1.35) * theme.envIntensity,
-        emissive: pigment(base, 1.3, 0.3),
-        emissiveIntensity: dark ? 0.5 : 0.05,
+        envMapIntensity: (dark ? 1.6 : 1.3) * theme.envIntensity,
+        emissive: base.clone(),
+        emissiveIntensity: dark ? 0.018 : 0,
       });
       if ('dispersion' in spec.material) spec.material.dispersion = 0.4;
       spec.baseEmissive = spec.material.emissiveIntensity;
-      spec.hoverEmissive = spec.baseEmissive + (dark ? 0.3 : 0.18);
+      spec.hoverEmissive = spec.baseEmissive + (dark ? 0.09 : 0.06);
       break;
     }
 
@@ -202,6 +287,211 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
       break;
     }
 
+    case 'toon': {
+      spec.material = new THREE.MeshToonMaterial({
+        color: pigment(base, 1.4, 0.48),
+        gradientMap: getToonGradient(),
+        emissive: base.clone(),
+        emissiveIntensity: dark ? 0.055 : 0.015,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.18;
+      spec.outline = {
+        color: new THREE.Color(dark ? '#05060b' : '#11121a'),
+        opacity: 0.98,
+        widthPx: 3.2,
+      };
+      break;
+    }
+
+    case 'halftone': {
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: pigment(base, 1.45, 0.43),
+        roughness: 0.68,
+        metalness: 0,
+        clearcoat: 0.22,
+        clearcoatRoughness: 0.42,
+        envMapIntensity: 0.5 * theme.envIntensity,
+        emissive: base.clone(),
+        emissiveIntensity: dark ? 0.035 : 0,
+      });
+      addSurfaceTreatment(spec.material, 'halftone', {
+        uniforms: { scale: 7.5, dotSize: 0.205, inkStrength: 0.88 },
+        fragmentBody: `
+  vec3 lustreN = abs(normalize(vLustreNormal));
+  vec2 lustrePlane = lustreN.y > max(lustreN.x, lustreN.z)
+    ? vLustrePosition.xz
+    : (lustreN.x > lustreN.z ? vLustrePosition.zy : vLustrePosition.xy);
+  vec2 lustreCell = fract(lustrePlane * uLustreScale) - 0.5;
+  float lustreDist = length(lustreCell);
+  float lustreAA = max(fwidth(lustreDist) * 1.35, 0.008);
+  float lustreDot = 1.0 - smoothstep(uLustreDotSize - lustreAA, uLustreDotSize + lustreAA, lustreDist);
+  vec3 lustreInk = mix(diffuseColor.rgb * 0.035, vec3(0.008, 0.009, 0.014), 0.72);
+  diffuseColor.rgb = mix(diffuseColor.rgb, lustreInk, lustreDot * uLustreInkStrength);`,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.18;
+      spec.outline = {
+        color: new THREE.Color(dark ? '#05060b' : '#12131b'),
+        opacity: 0.98,
+        widthPx: 2.7,
+      };
+      break;
+    }
+
+    case 'iridescent': {
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: pigment(base, 1.2, dark ? 0.16 : 0.28),
+        roughness: 0.12,
+        metalness: 0.32,
+        iridescence: 1,
+        iridescenceIOR: 1.78,
+        iridescenceThicknessRange: [110, 860],
+        clearcoat: 1,
+        clearcoatRoughness: 0.035,
+        specularIntensity: 1,
+        envMapIntensity: (dark ? 1.85 : 1.45) * theme.envIntensity,
+        emissive: pigment(base, 1.15, 0.2),
+        emissiveIntensity: dark ? 0.1 : 0.025,
+      });
+      addSurfaceTreatment(spec.material, 'iridescent', {
+        uniforms: { fresnelPower: 1.55, colorStrength: 0.5, colorCycles: 1.18 },
+        fragmentBody: `
+  float lustreFacing = clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0);
+  float lustreFresnel = pow(1.0 - lustreFacing, uLustreFresnelPower);
+  vec3 lustreSpectrum = 0.55 + 0.45 * cos(
+    6.2831853 * (lustreFresnel * uLustreColorCycles + vec3(0.02, 0.34, 0.68))
+  );
+  diffuseColor.rgb = mix(
+    diffuseColor.rgb,
+    lustreSpectrum,
+    clamp(0.12 + lustreFresnel * uLustreColorStrength, 0.0, 1.0)
+  );`,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.25;
+      break;
+    }
+
+    case 'crystal': {
+      const crystalWhite = new THREE.Color('#ffffff');
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: base.clone().lerp(crystalWhite, dark ? 0.92 : 0.78),
+        roughness: 0.035,
+        metalness: 0,
+        transmission: 1,
+        thickness: Math.max(0.42, thickness * 0.72),
+        ior: 1.62,
+        side: THREE.DoubleSide,
+        attenuationColor: base.clone().lerp(crystalWhite, 0.52),
+        attenuationDistance: Math.max(3.2, thickness * (dark ? 14 : 7.5)),
+        clearcoat: 1,
+        clearcoatRoughness: 0.015,
+        specularIntensity: 1,
+        iridescence: 0.58,
+        iridescenceIOR: 1.48,
+        iridescenceThicknessRange: [90, 520],
+        envMapIntensity: (dark ? 1.55 : 1.2) * theme.envIntensity,
+        emissive: base.clone(),
+        emissiveIntensity: dark ? 0.012 : 0,
+      });
+      if ('dispersion' in spec.material) spec.material.dispersion = 0.92;
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + (dark ? 0.08 : 0.05);
+      spec.outline = {
+        color: base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.76 : 0.48).multiplyScalar(dark ? 1.45 : 1),
+        opacity: dark ? 0.84 : 0.52,
+        widthPx: 1.15,
+      };
+      break;
+    }
+
+    case 'acrylic': {
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.36 : 0.5),
+        roughness: dark ? 0.32 : 0.4,
+        metalness: 0,
+        transmission: 0.72,
+        thickness: Math.max(0.4, thickness * 0.72),
+        ior: 1.47,
+        side: THREE.DoubleSide,
+        attenuationColor: base.clone(),
+        attenuationDistance: Math.max(0.75, thickness * 2.4),
+        clearcoat: 0.82,
+        clearcoatRoughness: 0.18,
+        sheen: 0.36,
+        sheenColor: base.clone().lerp(new THREE.Color('#ffffff'), 0.38),
+        sheenRoughness: 0.72,
+        envMapIntensity: (dark ? 1.35 : 1.05) * theme.envIntensity,
+        emissive: pigment(base, 1.15, 0.24),
+        emissiveIntensity: dark ? 0.16 : 0.02,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.24;
+      break;
+    }
+
+    case 'velvet': {
+      const sheen = base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.46 : 0.28);
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: pigment(base, 1.28, dark ? 0.16 : 0.3),
+        roughness: 0.86,
+        metalness: 0,
+        sheen: 1,
+        sheenColor: sheen,
+        sheenRoughness: 0.48,
+        clearcoat: 0,
+        envMapIntensity: 0.28 * theme.envIntensity,
+        emissive: pigment(base, 1.2, 0.2),
+        emissiveIntensity: dark ? 0.08 : 0,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.2;
+      break;
+    }
+
+    case 'inset': {
+      const backing = pigment(base.clone().offsetHSL(0, 0.05, dark ? -0.07 : -0.035), 1.38, 0.34);
+      const rim = base.clone().offsetHSL(0, 0.08, dark ? -0.3 : -0.24);
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: backing,
+        roughness: 0.3,
+        metalness: 0.025,
+        clearcoat: 0.82,
+        clearcoatRoughness: 0.12,
+        envMapIntensity: 0.88 * theme.envIntensity,
+        emissive: backing,
+        emissiveIntensity: dark ? 0.025 : 0,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.2;
+      spec.outline = {
+        color: rim.clone(),
+        opacity: 0.8,
+        widthPx: 1.2,
+      };
+      spec.layers = [
+        {
+          inset: 0.095,
+          height: 0.13,
+          embed: 0.62,
+          material: new THREE.MeshPhysicalMaterial({
+            color: '#ffffff',
+            roughness: 0.25,
+            metalness: 0,
+            clearcoat: 0.88,
+            clearcoatRoughness: 0.075,
+            specularIntensity: 0.86,
+            envMapIntensity: 0.78 * theme.envIntensity,
+            emissive: '#ffffff',
+            emissiveIntensity: dark ? 0.055 : 0,
+          }),
+          outline: { color: rim.clone(), opacity: 0.88, widthPx: 1.35 },
+        },
+      ];
+      break;
+    }
+
     case 'glossy':
     default: {
       spec.material = new THREE.MeshPhysicalMaterial({
@@ -220,31 +510,97 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
     }
   }
 
-  applyOverrides(spec, cfg);
+  applyOverrides(spec, cfg, preset);
   return spec;
 }
 
 /**
  * Apply user overrides on top of a preset.
  * Recognized extras beyond material props:
- *   `outline: false` removes rims; `outline: { widthPx, opacity }` tunes them.
+ *   - `outline` tunes/removes generated rim lines.
+ *   - `layer` tunes the first generated inset layer and its material.
+ *   - `shader` tunes procedural treatment uniforms (halftone/iridescent).
+ *   - `thicknessScale` / `attenuationScale` multiply volume defaults.
+ *   - `environmentScale` multiplies the preset's reflection strength.
+ *   - `surfaceSide` selects `front` or `double` face rendering.
  * @param {MaterialSpec} spec
  * @param {object} cfg
+ * @param {string} preset
  */
-function applyOverrides(spec, cfg) {
-  const { preset: _preset, outline, ...rest } = cfg;
-  for (const [key, value] of Object.entries(rest)) {
-    if (!(key in spec.material)) continue;
-    const current = spec.material[key];
-    if (current instanceof THREE.Color) current.set(value);
-    else spec.material[key] = value;
+function applyOverrides(spec, cfg, preset) {
+  const {
+    preset: _preset,
+    outline,
+    layer,
+    shader,
+    thicknessScale,
+    attenuationScale,
+    environmentScale,
+    surfaceSide,
+    ...rest
+  } = cfg;
+
+  if (Number.isFinite(thicknessScale) && typeof spec.material.thickness === 'number') {
+    spec.material.thickness *= Math.max(0, thicknessScale);
   }
+  if (typeof spec.material.attenuationDistance === 'number') {
+    const resolvedAttenuationScale = Number.isFinite(attenuationScale)
+      ? Math.max(0, attenuationScale)
+      : (TINTED_VOLUME_PRESETS.has(preset) ? DEFAULT_ATTENUATION_SCALE : 1);
+    spec.material.attenuationDistance = Math.max(
+      SAFE_MIN_ATTENUATION_DISTANCE,
+      spec.material.attenuationDistance * resolvedAttenuationScale,
+    );
+  }
+  if (Number.isFinite(environmentScale) && typeof spec.material.envMapIntensity === 'number') {
+    spec.material.envMapIntensity *= Math.max(0, environmentScale);
+  }
+  if (surfaceSide === 'front') spec.material.side = THREE.FrontSide;
+  else if (surfaceSide === 'double') spec.material.side = THREE.DoubleSide;
+  applyObjectProperties(spec.material, rest);
   if ('emissiveIntensity' in rest) {
     spec.baseEmissive = rest.emissiveIntensity;
     spec.hoverEmissive = Math.max(spec.hoverEmissive, spec.baseEmissive + 0.25);
   }
-  if (outline === false) spec.outline = null;
-  else if (outline && typeof outline === 'object' && spec.outline) Object.assign(spec.outline, outline);
+  if (outline === false) {
+    spec.outline = null;
+    for (const layer of spec.layers || []) layer.outline = null;
+  } else if (outline && typeof outline === 'object') {
+    if (spec.outline) applyObjectProperties(spec.outline, outline);
+    for (const layer of spec.layers || []) {
+      if (layer.outline) applyObjectProperties(layer.outline, outline);
+    }
+  }
+
+  const firstLayer = spec.layers?.[0];
+  if (firstLayer && layer && typeof layer === 'object') {
+    const { outline: layerOutline, inset, height, embed, ...layerMaterial } = layer;
+    if (Number.isFinite(inset)) firstLayer.inset = inset;
+    if (Number.isFinite(height)) firstLayer.height = height;
+    if (Number.isFinite(embed)) firstLayer.embed = embed;
+    applyObjectProperties(firstLayer.material, layerMaterial);
+    if (layerOutline === false) firstLayer.outline = null;
+    else if (firstLayer.outline && layerOutline && typeof layerOutline === 'object') {
+      applyObjectProperties(firstLayer.outline, layerOutline);
+    }
+  }
+
+  const shaderUniforms = spec.material.userData.lustreShader?.uniforms;
+  if (shaderUniforms && shader && typeof shader === 'object') {
+    for (const [key, value] of Object.entries(shader)) {
+      if (key in shaderUniforms && Number.isFinite(value)) shaderUniforms[key].value = value;
+    }
+  }
+}
+
+/** Safely apply public overrides without replacing Three.js Color instances. */
+function applyObjectProperties(target, overrides) {
+  for (const [key, value] of Object.entries(overrides || {})) {
+    if (!(key in target) || value === undefined) continue;
+    const current = target[key];
+    if (current instanceof THREE.Color) current.set(value);
+    else target[key] = value;
+  }
 }
 
 /**
@@ -256,7 +612,13 @@ function applyOverrides(spec, cfg) {
  */
 export function autoProfileFor(material) {
   const preset = typeof material === 'string' ? material : material?.preset;
-  return preset === 'neon' ? 'straight' : 'rounded';
+  return SHARP_EDGE_PRESETS.has(preset) ? 'straight' : 'rounded';
+}
+
+/** True when bars should default to crisp geometry for a graphic preset. */
+export function materialPrefersSharpEdges(material) {
+  const preset = typeof material === 'string' ? material : material?.preset;
+  return SHARP_EDGE_PRESETS.has(preset);
 }
 
 /**
