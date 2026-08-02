@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transmission with palette-aware wrapped diffusion and back-scattering,
   including a material-aware rear light and live optical, radius, light-wrap,
   and backlight controls in the material lab.
+- Add a `tricolor` translucent preset that deterministically derives lighter
+  and darker split-complementary hues from each palette color, anchors the
+  source color in a broad surface gradient, and exposes palette dominance,
+  rim-contrast, and gradient-direction controls.
 
 ## [0.3.1] — 2026-08-02
 

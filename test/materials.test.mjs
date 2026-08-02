@@ -15,7 +15,7 @@ const theme = {
 };
 
 test('every advertised material preset resolves to an interactive material spec', () => {
-  assert.equal(MATERIAL_PRESETS.length, 14);
+  assert.equal(MATERIAL_PRESETS.length, 15);
   for (const preset of MATERIAL_PRESETS) {
     const spec = createItemMaterial({ material: preset, color: '#2fe0c7', theme, thickness: 1 });
     assert.ok(spec.material instanceof THREE.Material, preset);
@@ -39,7 +39,7 @@ test('graphic materials ask charts for crisp geometry', () => {
 });
 
 test('procedural treatments augment stock shaders without replacing lighting', () => {
-  for (const preset of ['halftone', 'iridescent']) {
+  for (const preset of ['halftone', 'iridescent', 'tricolor']) {
     const { material } = createItemMaterial({ material: preset, color: '#ff4f81', theme, thickness: 1 });
     const shader = {
       vertexShader: '#include <common>\nvoid main(){\n#include <begin_vertex>\n}',
@@ -74,6 +74,66 @@ test('procedural shader controls are exported as live uniforms', () => {
   assert.equal(shader.uniforms.uLustreInkStrength.value, 0.63);
   assert.match(shader.fragmentShader, /uniform float uLustreScale/);
   material.dispose();
+});
+
+test('tricolor derives stable palette companions and keeps shader controls live', () => {
+  const first = createItemMaterial({
+    material: {
+      preset: 'tricolor',
+      shader: { dominance: 0.72, edgePower: 1.8, flow: 0.85, dominantColor: 0.2 },
+    },
+    color: '#2fe0c7',
+    theme,
+    thickness: 1,
+  });
+  const second = createItemMaterial({ material: 'tricolor', color: '#2fe0c7', theme, thickness: 1 });
+  const other = createItemMaterial({ material: 'tricolor', color: '#ff4f81', theme, thickness: 1 });
+  const uniforms = first.material.userData.lustreShader.uniforms;
+  const defaultUniforms = second.material.userData.lustreShader.uniforms;
+  const colorDistance = (left, right) => Math.hypot(
+    left.r - right.r,
+    left.g - right.g,
+    left.b - right.b,
+  );
+  for (const key of ['dominantColor', 'companionA', 'companionB']) {
+    assert.ok(uniforms[key].value instanceof THREE.Color, key);
+  }
+  assert.equal(uniforms.dominance.value, 0.72);
+  assert.equal(uniforms.edgePower.value, 1.8);
+  assert.equal(uniforms.flow.value, 0.85);
+  assert.equal(defaultUniforms.dominance.value, 0.2);
+  assert.equal(
+    uniforms.companionA.value.getHex(),
+    second.material.userData.lustreShader.uniforms.companionA.value.getHex(),
+  );
+  assert.notEqual(uniforms.companionA.value.getHex(), uniforms.companionB.value.getHex());
+  assert.ok(colorDistance(defaultUniforms.dominantColor.value, defaultUniforms.companionA.value) > 0.12);
+  assert.ok(colorDistance(defaultUniforms.dominantColor.value, defaultUniforms.companionB.value) > 0.12);
+  assert.ok(colorDistance(defaultUniforms.companionA.value, defaultUniforms.companionB.value) > 0.2);
+  assert.notEqual(
+    uniforms.companionA.value.getHex(),
+    other.material.userData.lustreShader.uniforms.companionA.value.getHex(),
+  );
+  assert.equal(first.wantsBacklight, true);
+  assert.equal(first.material.side, THREE.DoubleSide);
+  assert.ok(first.material.transmission > 0.4);
+  assert.ok(first.material.transmission < 0.6);
+
+  const shader = {
+    uniforms: {},
+    vertexShader: '#include <common>\nvoid main(){\n#include <begin_vertex>\n}',
+    fragmentShader: '#include <common>\nvoid main(){\n#include <color_fragment>\n}',
+  };
+  first.material.onBeforeCompile(shader);
+  assert.equal(shader.uniforms.uLustreDominance.value, 0.72);
+  assert.ok(shader.uniforms.uLustreCompanionA.value instanceof THREE.Color);
+  assert.match(shader.fragmentShader, /uniform vec3 uLustreCompanionA/);
+  assert.match(shader.fragmentShader, /lustreTriGradient/);
+  assert.match(shader.fragmentShader, /vLustreUv\.x/);
+
+  first.material.dispose();
+  second.material.dispose();
+  other.material.dispose();
 });
 
 test('subsurface augments direct physical lighting with editable diffusion lobes', () => {
@@ -178,7 +238,7 @@ test('relative optical controls scale geometry-aware glass defaults', () => {
 });
 
 test('zero tint distance produces maximum absorption without a zero shader divisor', () => {
-  for (const preset of ['glass', 'crystal', 'acrylic']) {
+  for (const preset of ['glass', 'crystal', 'acrylic', 'tricolor']) {
     const spec = createItemMaterial({
       material: { preset, attenuationScale: 0 },
       color: '#2fe0c7',
@@ -205,7 +265,7 @@ test('glass families stay genuinely transmissive instead of self-lit and opaque-
 });
 
 test('glass-family surface rendering can be returned to front faces', () => {
-  for (const preset of ['glass', 'crystal', 'acrylic']) {
+  for (const preset of ['glass', 'crystal', 'acrylic', 'tricolor']) {
     const baseline = createItemMaterial({ material: preset, color: '#2fe0c7', theme, thickness: 1 });
     assert.equal(baseline.material.side, THREE.DoubleSide, preset);
     baseline.material.dispose();

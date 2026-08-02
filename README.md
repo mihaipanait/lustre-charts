@@ -39,7 +39,7 @@ Everything else is *look and feel*:
 
 | | |
 |---|---|
-| 🎨 **14 material presets** | PBR, translucent, subsurface, spectral, fabric, toon, procedural print, and inset finishes — each with curated, exportable controls |
+| 🎨 **15 material presets** | PBR, translucent, subsurface, harmonic color, spectral, fabric, toon, procedural print, and inset finishes — each with curated, exportable controls |
 | 🌗 **Themes** | `dark`, `light`, fully custom objects, transparent backgrounds |
 | 🌈 **8 palettes** | aurora, neon, metal, candy, ocean, sunset, violet, mono — or any color array, auto-extended for large datasets |
 | ✨ **Effects** | bloom post-processing, neon grid floor, HUD rings, floating particles, soft contact shadow |
@@ -133,6 +133,7 @@ options: { material: 'metal', palette: 'metal' }   // brushed gold/silver/copper
 options: { material: { preset: 'glass', roughness: 0.02, ior: 1.8 } } // override anything
 options: { material: { preset: 'toon', outline: { color: '#fff', widthPx: 4 } } }
 options: { material: { preset: 'subsurface', shader: { radius: 1.1, backscatter: 0.8 } } }
+options: { material: { preset: 'tricolor', shader: { dominance: 0.2, flow: 1.25 } } }
 ```
 
 Every preset has a curated editor in the demo. It shows the active defaults,
@@ -268,7 +269,7 @@ src/
 ├── core/             BaseChart rig · tween engine · themes · palettes · utils
 ├── charts/           PieChart · RadialChart · BarChart
 ├── geometry/         profile revolve + cap builder, outline builder
-├── materials/        the fourteen PBR and graphic presets
+├── materials/        the fifteen PBR and graphic presets
 ├── overlay/          SVG callout labels · tooltip · legend
 └── fx/               studio environment · bloom · grid/rings/particles/shadow
 ```

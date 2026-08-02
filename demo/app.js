@@ -110,6 +110,7 @@ const MATERIAL_INFO = {
   crystal: ['Dispersive crystal', 'Clear high-IOR glass with chromatic edge separation.'],
   acrylic: ['Frosted acrylic', 'Soft transmission, milky depth, and a polished outer skin.'],
   subsurface: ['Subsurface gel', 'Partial transmission and palette-tinted diffusion revealed by a dedicated rear light.'],
+  tricolor: ['Harmonic tri-glass', 'The palette color anchors two widely separated deterministic hues across a translucent volume.'],
   velvet: ['Velvet sheen', 'Dark diffuse body with bright color at grazing angles.'],
   inset: ['Inset white face', 'One solid-white face is sunk into a larger colored backing.'],
 };

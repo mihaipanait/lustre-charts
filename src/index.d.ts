@@ -20,6 +20,7 @@ export type MaterialPreset =
   | 'crystal'
   | 'acrylic'
   | 'subsurface'
+  | 'tricolor'
   | 'velvet'
   | 'inset';
 export type PaletteName = 'aurora' | 'neon' | 'metal' | 'candy' | 'ocean' | 'sunset' | 'violet' | 'mono';

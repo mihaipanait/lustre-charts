@@ -29,6 +29,7 @@ are required.
 | `crystal` | Polished optical glass | High IOR, strong dispersion, precise clearcoat, and long absorption depth. |
 | `acrylic` | Frosted translucent polymer | Soft transmission and milky depth under a polished skin. |
 | `subsurface` | Soft gel / wax | Partial physical transmission plus palette-aware wrapped diffusion and back-scattering under a polished PBR surface. |
+| `tricolor` | Harmonic tri-glass | The palette color anchors a broad gradient between two deterministic split-complementary hues across a translucent volume. |
 | `velvet` | Soft textile | Dark diffuse body with colored grazing-angle sheen. |
 | `inset` | Inset white face | A smaller solid-white face is physically sunk into a colored backing silhouette. |
 
@@ -84,6 +85,13 @@ material: {
   transmission: 0.36,
   thicknessScale: 0.8,
   roughness: 0.3,
+}
+
+// Palette-derived three-color glass
+material: {
+  preset: 'tricolor',
+  shader: { dominance: 0.2, edgePower: 1.5, flow: 1.25 },
+  transmission: 0.48,
 }
 ```
 
