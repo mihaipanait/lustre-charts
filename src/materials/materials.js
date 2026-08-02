@@ -21,6 +21,7 @@
  *  - `crystal`   highly polished dispersive glass
  *  - `acrylic`   softly frosted translucent polymer
  *  - `subsurface` soft gel / wax with wrapped diffuse light + back-scattering
+ *  - `tricolor`  translucent palette-derived three-color harmony
  *  - `velvet`    grazing-angle fabric sheen
  *  - `inset`     colored backing with one inset solid-white face
  *
@@ -33,11 +34,11 @@ import * as THREE from 'three';
 /** Preset names, in display order. */
 export const MATERIAL_PRESETS = [
   'glossy', 'glass', 'metal', 'neon', 'hologram', 'matte',
-  'toon', 'halftone', 'iridescent', 'crystal', 'acrylic', 'subsurface', 'velvet', 'inset',
+  'toon', 'halftone', 'iridescent', 'crystal', 'acrylic', 'subsurface', 'tricolor', 'velvet', 'inset',
 ];
 
 const SHARP_EDGE_PRESETS = new Set(['neon', 'toon', 'halftone']);
-const TINTED_VOLUME_PRESETS = new Set(['glass', 'crystal', 'acrylic']);
+const TINTED_VOLUME_PRESETS = new Set(['glass', 'crystal', 'acrylic', 'tricolor']);
 const DEFAULT_ATTENUATION_SCALE = 0.15;
 const SAFE_MIN_ATTENUATION_DISTANCE = 1e-4;
 
@@ -63,13 +64,14 @@ function getToonGradient() {
  * This preserves Three's full lighting, shadows, tone mapping, and PBR stack.
  * @param {THREE.Material} material
  * @param {string} key
- * @param {{ fragmentBody: string, uniforms?: Record<string, number> }} treatment
- *   GLSL inserted immediately after base color plus editable float uniforms.
+ * @param {{ fragmentBody: string, uniforms?: Record<string, number | THREE.Color> }} treatment
+ *   GLSL inserted immediately after base color plus float/color uniforms.
  */
 function addSurfaceTreatment(material, key, treatment) {
   const uniformEntries = Object.entries(treatment.uniforms || {}).map(([name, value]) => {
     const glslName = `uLustre${name[0].toUpperCase()}${name.slice(1)}`;
-    return [name, glslName, { value }];
+    const glslType = value instanceof THREE.Color ? 'vec3' : 'float';
+    return [name, glslName, { value }, glslType];
   });
   material.userData.lustreShader = {
     key,
@@ -80,7 +82,9 @@ function addSurfaceTreatment(material, key, treatment) {
 varying vec3 vLustrePosition;
 varying vec3 vLustreNormal;
 varying vec2 vLustreUv;`;
-    const declarations = uniformEntries.map(([_name, glslName]) => `uniform float ${glslName};`).join('\n');
+    const declarations = uniformEntries
+      .map(([_name, glslName, _uniform, glslType]) => `uniform ${glslType} ${glslName};`)
+      .join('\n');
     shader.uniforms ||= {};
     for (const [_name, glslName, uniform] of uniformEntries) shader.uniforms[glslName] = uniform;
     shader.vertexShader = shader.vertexShader
@@ -211,6 +215,47 @@ function pigment(c, satBoost = 1.25, maxLum = 0.3) {
   const lum = 0.2126 * out.r + 0.7152 * out.g + 0.0722 * out.b;
   if (lum > maxLum) out.multiplyScalar((maxLum / lum) ** 0.9);
   return out;
+}
+
+/** Fractional component with positive output for deterministic color hashes. */
+function fract(value) {
+  return value - Math.floor(value);
+}
+
+/**
+ * Build two deterministic companion colors around a palette color. The hue
+ * distances vary slightly with a hash of the source RGB, preventing every
+ * slice from using an identical split while remaining stable across renders.
+ * The companions use a split-complementary layout rather than close analogous
+ * hues. One is a lighter 58°–101° turn and the other a darker 108°–166°
+ * turn in the opposite direction. The source color still anchors the middle
+ * of the surface gradient, but the endpoints have enough distance to read.
+ * @param {THREE.Color} base
+ */
+function triColorHarmony(base) {
+  const hsl = { h: 0, s: 0, l: 0 };
+  base.getHSL(hsl);
+  const seedA = fract(Math.sin(base.r * 12.9898 + base.g * 78.233 + base.b * 37.719) * 43758.5453);
+  const seedB = fract(Math.sin(base.r * 39.3468 + base.g * 11.135 + base.b * 83.155) * 24634.6345);
+  const direction = seedA < 0.5 ? -1 : 1;
+  const nearSpread = 0.16 + seedB * 0.12;
+  const farSpread = 0.3 + seedA * 0.16;
+  const saturation = Math.min(1, Math.max(0.52, hsl.s * 0.92 + 0.14));
+  const companionA = new THREE.Color().setHSL(
+    fract(hsl.h + direction * nearSpread),
+    saturation,
+    Math.min(0.82, hsl.l + 0.14 + seedB * 0.13),
+  );
+  const companionB = new THREE.Color().setHSL(
+    fract(hsl.h - direction * farSpread),
+    Math.min(1, saturation * 0.96 + 0.06),
+    Math.max(0.055, Math.min(0.46, hsl.l * (0.5 + seedB * 0.12) + 0.018)),
+  );
+  return {
+    dominant: pigment(base, 1.18, 0.34),
+    companionA: pigment(companionA, 1.16, 0.44),
+    companionB: pigment(companionB, 1.22, 0.22),
+  };
 }
 
 /**
@@ -566,6 +611,90 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
       break;
     }
 
+    case 'tricolor': {
+      const harmony = triColorHarmony(base);
+      spec.material = new THREE.MeshPhysicalMaterial({
+        color: harmony.dominant,
+        roughness: dark ? 0.16 : 0.2,
+        metalness: 0,
+        transmission: 0.48,
+        thickness: Math.max(0.42, thickness * 0.72),
+        ior: 1.4,
+        side: THREE.DoubleSide,
+        attenuationColor: base.clone().lerp(harmony.companionA, 0.16),
+        attenuationDistance: Math.max(2.8, thickness * 7.5),
+        clearcoat: 0.72,
+        clearcoatRoughness: 0.11,
+        sheen: 0.24,
+        sheenColor: harmony.companionA.clone().lerp(new THREE.Color('#ffffff'), 0.28),
+        sheenRoughness: 0.62,
+        envMapIntensity: (dark ? 1.18 : 0.96) * theme.envIntensity,
+        emissive: harmony.dominant,
+        emissiveIntensity: dark ? 0.035 : 0,
+      });
+      addSurfaceTreatment(spec.material, 'tricolor', {
+        uniforms: {
+          dominantColor: harmony.dominant,
+          companionA: harmony.companionA,
+          companionB: harmony.companionB,
+          dominance: 0.2,
+          edgePower: 1.35,
+          flow: 1.15,
+        },
+        fragmentBody: `
+  vec3 lustreTriNormal = normalize(vLustreNormal);
+  float lustreTriFacing = clamp(
+    abs(dot(normalize(vNormal), normalize(vViewPosition))),
+    0.0,
+    1.0
+  );
+  float lustreTriEdge = pow(1.0 - lustreTriFacing, uLustreEdgePower);
+  float lustreTriPhase = uLustreFlow * 1.35;
+  vec3 lustreTriDirection = normalize(vec3(
+    cos(lustreTriPhase),
+    0.72,
+    sin(lustreTriPhase)
+  ));
+  float lustreTriAngle = atan(lustreTriNormal.z, lustreTriNormal.x);
+  float lustreTriNormalGradient = 0.5 + 0.5 * dot(
+    lustreTriNormal,
+    lustreTriDirection
+  );
+  float lustreTriSurfaceGradient = clamp(
+    vLustreUv.x
+    + 0.12 * sin(6.2831853 * vLustreUv.y + lustreTriPhase),
+    0.0,
+    1.0
+  );
+  float lustreTriGradient = clamp(
+    mix(lustreTriSurfaceGradient, lustreTriNormalGradient, 0.18)
+    + 0.035 * sin(lustreTriAngle * 1.6 + vLustrePosition.y * 1.8),
+    0.0,
+    1.0
+  );
+  vec3 lustreTriColor = mix(
+    uLustreCompanionB,
+    uLustreDominantColor,
+    smoothstep(0.04, 0.52, lustreTriGradient)
+  );
+  lustreTriColor = mix(
+    lustreTriColor,
+    uLustreCompanionA,
+    smoothstep(0.48, 0.96, lustreTriGradient)
+  );
+  float lustreTriAmount = clamp(
+    (1.0 - uLustreDominance) * (1.0 + 0.12 * lustreTriEdge),
+    0.0,
+    0.94
+  );
+  diffuseColor.rgb = mix(uLustreDominantColor, lustreTriColor, lustreTriAmount);`,
+      });
+      spec.baseEmissive = spec.material.emissiveIntensity;
+      spec.hoverEmissive = spec.baseEmissive + 0.22;
+      spec.wantsBacklight = true;
+      break;
+    }
+
     case 'velvet': {
       const sheen = base.clone().lerp(new THREE.Color('#ffffff'), dark ? 0.46 : 0.28);
       spec.material = new THREE.MeshPhysicalMaterial({
@@ -654,7 +783,7 @@ export function createItemMaterial({ material, color, theme, thickness = 1 }) {
  * Recognized extras beyond material props:
  *   - `outline` tunes/removes generated rim lines.
  *   - `layer` tunes the first generated inset layer and its material.
- *   - `shader` tunes procedural treatment uniforms (halftone/iridescent/subsurface).
+ *   - `shader` tunes procedural treatment uniforms (halftone/iridescent/subsurface/tricolor).
  *   - `thicknessScale` / `attenuationScale` multiply volume defaults.
  *   - `environmentScale` multiplies the preset's reflection strength.
  *   - `surfaceSide` selects `front` or `double` face rendering.
@@ -723,7 +852,11 @@ function applyOverrides(spec, cfg, preset) {
   const shaderUniforms = spec.material.userData.lustreShader?.uniforms;
   if (shaderUniforms && shader && typeof shader === 'object') {
     for (const [key, value] of Object.entries(shader)) {
-      if (key in shaderUniforms && Number.isFinite(value)) shaderUniforms[key].value = value;
+      if (
+        key in shaderUniforms
+        && typeof shaderUniforms[key].value === 'number'
+        && Number.isFinite(value)
+      ) shaderUniforms[key].value = value;
     }
   }
 }
