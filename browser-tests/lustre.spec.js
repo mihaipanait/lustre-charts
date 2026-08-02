@@ -19,6 +19,7 @@ test('runtime option and lifecycle regression harness passes', async ({ page }) 
 });
 
 test('demo exposes operable chart, material, palette, and theme controls', async ({ page }) => {
+  test.slow(); // A 1024px PMREM rebuild can exceed the base timeout on software-rendered CI.
   const errors = collectPageErrors(page);
   await page.goto('/demo/?quality=balanced');
 
