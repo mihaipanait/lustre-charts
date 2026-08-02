@@ -61,7 +61,7 @@ function closeStrip(points) {
  * Rounded-rectangle profile generator (also powers `straight` with r=0 and
  * `pillow` with a large r).
  */
-function roundedRectProfile(inner, outer, h, r, cornerSegments = 6) {
+function roundedRectProfile(inner, outer, h, r, cornerSegments = 14) {
   const h2 = h / 2;
   const w = Math.max(EPS, outer - inner);
   const rO = Math.max(0, Math.min(r, h2 * 0.98, w * 0.49));
@@ -113,7 +113,7 @@ function diag(cx, cy, r, angle) {
 }
 
 /** Elliptical (torus-like) cross-section. */
-function tubeProfile(inner, outer, h, segments = 28) {
+function tubeProfile(inner, outer, h, segments = 56) {
   const rx = Math.max(EPS, (outer - inner) / 2);
   const ry = Math.max(EPS, h / 2);
   const cx = (inner + outer) / 2;
@@ -225,9 +225,10 @@ function dedupePositions(points) {
  * Resolve a profile option into a {@link Profile}.
  * @param {string | {x:number, y:number}[]} profile preset name or custom points
  * @param {{ innerRadius: number, radius: number, height: number, cornerRadius: number }} dims
+ * @param {{ roundedSegments?: number, tubeSegments?: number }} [opts]
  * @returns {Profile}
  */
-export function buildProfile(profile, { innerRadius, radius, height, cornerRadius }) {
+export function buildProfile(profile, { innerRadius, radius, height, cornerRadius }, opts = {}) {
   const dimensions = { innerRadius, radius, height, cornerRadius };
   for (const [name, value] of Object.entries(dimensions)) {
     if (!Number.isFinite(value)) {
@@ -237,21 +238,37 @@ export function buildProfile(profile, { innerRadius, radius, height, cornerRadiu
   if (radius <= EPS || height <= EPS) {
     throw new Error('[lustre-charts] profile radius and height must be greater than zero');
   }
+  const roundedSegments = profileSegmentCount(opts.roundedSegments, 16, 'roundedSegments');
+  const tubeSegments = profileSegmentCount(opts.tubeSegments, 64, 'tubeSegments', 8);
   const inner = Math.max(0, Math.min(innerRadius, radius * 0.98));
   if (Array.isArray(profile)) return customProfile(profile);
   switch (profile) {
     case 'straight':
-      return roundedRectProfile(inner, radius, height, 0);
+      return roundedRectProfile(inner, radius, height, 0, 1);
     case 'pillow':
-      return roundedRectProfile(inner, radius, height, Math.min(height / 2, (radius - inner) / 2) * 0.96, 8);
+      return roundedRectProfile(
+        inner,
+        radius,
+        height,
+        Math.min(height / 2, (radius - inner) / 2) * 0.96,
+        roundedSegments,
+      );
     case 'tube':
-      return tubeProfile(inner, radius, height);
+      return tubeProfile(inner, radius, height, tubeSegments);
     case 'auto':
     case 'rounded':
-      return roundedRectProfile(inner, radius, height, cornerRadius, 6);
+      return roundedRectProfile(inner, radius, height, cornerRadius, roundedSegments);
     default:
       throw new Error(`[lustre-charts] unknown profile "${profile}"`);
   }
+}
+
+function profileSegmentCount(value, fallback, name, minimum = 1) {
+  if (value === null || value === undefined) return fallback;
+  if (!Number.isFinite(value) || value < minimum) {
+    throw new Error(`[lustre-charts] profile ${name} must be a finite number of at least ${minimum}`);
+  }
+  return Math.floor(value);
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,7 +292,7 @@ export function buildSliceGeometry(profile, thetaStart, thetaLength, opts = {}) 
   if (!Number.isFinite(thetaStart) || !Number.isFinite(thetaLength)) {
     throw new Error('[lustre-charts] slice angles must be finite numbers');
   }
-  const requestedResolution = opts.radialResolution ?? 96;
+  const requestedResolution = opts.radialResolution ?? 256;
   if (!Number.isFinite(requestedResolution) || requestedResolution < 2) {
     throw new Error('[lustre-charts] radialResolution must be a finite number of at least 2');
   }
@@ -430,7 +447,7 @@ function validateProfile(profile) {
  * @returns {number[]}
  */
 export function buildSliceOutlinePositions(profile, thetaStart, thetaLength, opts = {}) {
-  const res = opts.radialResolution ?? 96;
+  const res = opts.radialResolution ?? 256;
   const len = Math.max(1e-5, Math.min(thetaLength, FULL));
   const isFull = len >= FULL - 1e-4;
   const N = Math.max(2, Math.ceil((len / FULL) * res));

@@ -19,8 +19,8 @@ export const DEFAULT_OPTIONS = {
   palette: 'aurora',
 
   /**
-   * Material preset name ('glossy' | 'glass' | 'metal' | 'neon' |
-   * 'hologram' | 'matte') or `{ preset, ...MeshPhysicalMaterial overrides }`.
+   * Material preset name (see MATERIAL_PRESETS) or
+   * `{ preset, ...material overrides }`.
    * Individual data items may override with their own `material`.
    */
   material: 'glossy',
@@ -193,9 +193,18 @@ export const DEFAULT_OPTIONS = {
   },
 
   quality: {
+    /** 'ultra' favors reference-grade reflections; 'balanced' reduces GPU/CPU cost. */
+    preset: 'ultra',
     /** 'auto' = min(devicePixelRatio, 2), or a number. */
     dpr: 'auto',
     antialias: true,
+    /** Expert overrides. null inherits from the selected quality preset. */
+    environmentSize: null,
+    environmentBlur: null,
+    transmissionResolutionScale: null,
+    radialResolution: null,
+    roundedSegments: null,
+    tubeSegments: null,
   },
 
   /** Watch the container and resize with it. */

@@ -2,11 +2,25 @@ import type {
   BufferGeometry,
   Color,
   MeshPhysicalMaterial,
+  MeshToonMaterial,
 } from 'three';
 
 export type ChartType = 'pie' | 'donut' | 'radial' | 'bar';
 export type ThemeName = 'dark' | 'light';
-export type MaterialPreset = 'glossy' | 'glass' | 'metal' | 'neon' | 'hologram' | 'matte';
+export type MaterialPreset =
+  | 'glossy'
+  | 'glass'
+  | 'metal'
+  | 'neon'
+  | 'hologram'
+  | 'matte'
+  | 'toon'
+  | 'halftone'
+  | 'iridescent'
+  | 'crystal'
+  | 'acrylic'
+  | 'velvet'
+  | 'inset';
 export type PaletteName = 'aurora' | 'neon' | 'metal' | 'candy' | 'ocean' | 'sunset' | 'violet' | 'mono';
 export type EasingFunction = (t: number) => number;
 export type EasingName =
@@ -156,12 +170,36 @@ export type ThemeOption =
       lights?: Partial<LustreTheme['lights']>;
     });
 
-export type MaterialOption =
-  | MaterialPreset
-  | ({
-      preset?: MaterialPreset;
-      outline?: boolean;
-    } & Record<string, unknown>);
+export interface MaterialOutlineOptions {
+  color?: string | number;
+  opacity?: number;
+  widthPx?: number;
+}
+
+export interface MaterialLayerOptions extends Record<string, unknown> {
+  color?: string | number;
+  inset?: number;
+  height?: number;
+  embed?: number;
+  outline?: false | MaterialOutlineOptions;
+}
+
+export interface MaterialOverrides extends Record<string, unknown> {
+  preset?: MaterialPreset;
+  outline?: false | MaterialOutlineOptions;
+  layer?: MaterialLayerOptions;
+  shader?: Record<string, number>;
+  /** Multiplier for the preset's geometry-aware physical volume depth. */
+  thicknessScale?: number;
+  /** Multiplier for color attenuation distance. Glass-like presets default to 0.15; zero requests maximum safely-clamped absorption. */
+  attenuationScale?: number;
+  /** Multiplier for the preset's studio-environment reflection strength. */
+  environmentScale?: number;
+  /** Whether only outward-facing surfaces or both sides of a volume render. */
+  surfaceSide?: 'front' | 'double';
+}
+
+export type MaterialOption = MaterialPreset | MaterialOverrides;
 
 export interface CameraOptions {
   fov?: number;
@@ -288,9 +326,32 @@ export interface EffectOptions {
 }
 
 export interface QualityOptions {
+  /** Rendering-cost tier. Ultra is the reference-quality default. */
+  preset?: 'balanced' | 'ultra';
   dpr?: 'auto' | number;
   /** Constructor-only: WebGL fixes MSAA when the rendering context is created. */
   antialias?: boolean;
+  /** PMREM cube-face size. Values are normalized to a power of two from 64 to 2048. */
+  environmentSize?: number | null;
+  /** Initial environment blur radius in radians. */
+  environmentBlur?: number | null;
+  /** Screen-space transmission buffer scale from 0.25 to 1. */
+  transmissionResolutionScale?: number | null;
+  /** Angular segments used for a complete pie/radial revolution, from 24 to 512. */
+  radialResolution?: number | null;
+  /** Segments used around each rounded profile corner, from 1 to 16. */
+  roundedSegments?: number | null;
+  /** Segments used around a tube profile cross-section, from 8 to 64. */
+  tubeSegments?: number | null;
+}
+
+export interface ResolvedQualitySettings {
+  environmentSize: number;
+  environmentBlur: number;
+  transmissionResolutionScale: number;
+  radialResolution: number;
+  roundedSegments: number;
+  tubeSegments: number;
 }
 
 export interface LustreOptions {
@@ -368,8 +429,13 @@ export interface SliceGeometryOptions {
   radialResolution?: number;
 }
 
+export interface ProfileQualityOptions {
+  roundedSegments?: number;
+  tubeSegments?: number;
+}
+
 export interface MaterialSpec {
-  material: MeshPhysicalMaterial;
+  material: MeshPhysicalMaterial | MeshToonMaterial;
   hoverEmissive: number;
   baseEmissive: number;
   outline: {
@@ -377,6 +443,17 @@ export interface MaterialSpec {
     opacity: number;
     widthPx: number;
   } | null;
+  layers: Array<{
+    material: MeshPhysicalMaterial;
+    inset: number;
+    height: number;
+    embed: number;
+    outline: {
+      color: Color;
+      opacity: number;
+      widthPx: number;
+    } | null;
+  }> | null;
   wantsBloom: boolean;
 }
 
@@ -386,10 +463,15 @@ export const LustrePalettes: Record<PaletteName, string[]>;
 export const MATERIAL_PRESETS: readonly MaterialPreset[];
 export const Easings: Record<EasingName, EasingFunction>;
 export const DEFAULT_OPTIONS: LustreOptions;
+export const QUALITY_PRESETS: Readonly<Record<
+  'balanced' | 'ultra',
+  Readonly<ResolvedQualitySettings>
+>>;
 
 export function buildProfile(
   profile: ProfileOption,
-  dimensions: ProfileDimensions
+  dimensions: ProfileDimensions,
+  options?: ProfileQualityOptions
 ): Profile;
 
 export function buildSliceGeometry(

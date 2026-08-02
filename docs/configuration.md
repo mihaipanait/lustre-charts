@@ -12,7 +12,7 @@ new LustreChart(el, { type, data, options: { /* this document */ } });
 
 Most options can be changed after construction. Lightweight settings such as
 `background`, `camera`, `labels`, `legend`, `tooltip`, `animation`,
-`interaction`, `effects`, `quality.dpr`, `responsive`, and `ariaLabel` apply
+`interaction`, `effects`, `quality`, `responsive`, and `ariaLabel` apply
 live. Changes to `theme`, `material`, `palette`, `pie`, `radial`, or `bar` rebuild the
 affected chart meshes while preserving the chart instance and data.
 
@@ -33,7 +33,7 @@ intentionally replaces it.
 | `theme` | `'dark'` | `'dark'`, `'light'`, or a [custom theme object](materials-and-theming.md#custom-themes). |
 | `background` | `'auto'` | `'auto'` (theme backdrop), `'transparent'`, a CSS color, or `{ inner, outer }` for an in-canvas radial gradient. |
 | `palette` | `'aurora'` | Palette name (`aurora`, `neon`, `metal`, `candy`, `ocean`, `sunset`, `violet`, `mono`) or an array of colors. Auto-extended when the data has more items. |
-| `material` | `'glossy'` | Preset name (`glossy`, `glass`, `metal`, `neon`, `hologram`, `matte`) or `{ preset, ...overrides }` where overrides are any `MeshPhysicalMaterial` property plus `outline`. |
+| `material` | `'glossy'` | One of the thirteen [material presets](materials-and-theming.md#material-presets), or `{ preset, ...overrides }` with material properties plus `outline`, `layer`, `shader`, `thicknessScale`, `attenuationScale`, `environmentScale`, and `surfaceSide`. |
 | `responsive` | `true` | Follow the container size via `ResizeObserver`. |
 | `ariaLabel` | `null` | Accessible canvas description. Defaults to an auto-generated data summary. |
 
@@ -173,8 +173,21 @@ See the [radial chart guide](charts/radial.md).
 
 | Option | Default | Description |
 |---|---|---|
+| `preset` | `'ultra'` | `'ultra'` uses a 512px PMREM and 256/16/64 angular, rounded, and tube segments; `'balanced'` uses a 256px PMREM and lighter profile tessellation. |
 | `dpr` | `'auto'` | `'auto'` = `min(devicePixelRatio, 2)`, or a number. |
 | `antialias` | `true` | MSAA on the WebGL context. Constructor-only. |
+| `environmentSize` | `null` | Expert override for PMREM cube-face size. Normalized to a power of two from 64–2048; `null` inherits the tier. The demo presents 512, 1024, and experimental 2048 options. |
+| `environmentBlur` | `null` | Initial environment blur radius in radians. The tier defaults apply roughly one texel of blur to suppress hard reflection stair-stepping. |
+| `transmissionResolutionScale` | `null` | Screen-space physical-transmission buffer scale from 0.25–1. Both tiers inherit `1`. |
+| `radialResolution` | `null` | Angular segments for one full pie/radial revolution. Range: 24–512. Balanced and Ultra default to 256; increase to 512 for especially smooth metallic reflections. |
+| `roundedSegments` | `null` | Segments around each rounded profile corner. Range: 1–16. Balanced: 8; Ultra: 16. |
+| `tubeSegments` | `null` | Segments around a tube profile cross-section. Range: 8–64. Balanced: 32; Ultra: 64. |
+
+The detailed fields override the selected tier. Switching tiers at runtime rebuilds
+pie/radial geometry and regenerates the environment when required. PMREM memory
+scales quadratically: 1024px uses about four times the storage of 512px, and
+2048px about sixteen times. Treat 2048px as an opt-in desktop experiment rather
+than a general production default.
 
 ## Per-item overrides (pie and radial data)
 

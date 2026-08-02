@@ -72,49 +72,90 @@ export class Decorations {
     const theme = this.chart.theme;
     const dark = theme.kind === 'dark';
     const extent = radius * 5;
-    const mat = new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      uniforms: {
+    const vertexShader = /* glsl */ `
+      varying vec2 vPos;
+      void main() {
+        vPos = position.xy;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`;
+    const fragmentShader = /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uExtent;
+      uniform float uOpacity;
+      uniform float uCell;
+      uniform float uCaptureOnly;
+      uniform float uCapturePass;
+      varying vec2 vPos;
+      float gridLine(vec2 p, float scale) {
+        vec2 q = p / scale;
+        vec2 g = abs(fract(q - 0.5) - 0.5) / fwidth(q);
+        return 1.0 - min(min(g.x, g.y), 1.0);
+      }
+      void main() {
+        if (uCaptureOnly > 0.5 && uCapturePass < 0.5) discard;
+        float fine = gridLine(vPos, uCell) * 0.5;
+        float coarse = gridLine(vPos, uCell * 4.0);
+        float g = max(fine, coarse);
+        float r = length(vPos);
+        float fade = 1.0 - smoothstep(uExtent * 0.22, uExtent * 0.52, r);
+        float a = g * fade * uOpacity;
+        if (a < 0.003) discard;
+        gl_FragColor = vec4(uColor, a);
+      }`;
+    const makeUniforms = (captureOnly) => ({
         uColor: { value: new THREE.Color(theme.gridColor) },
         uExtent: { value: extent },
-        uOpacity: { value: dark ? 0.5 : 0.4 },
+        // The visible grid stays crisp, while its opaque transmission-pass
+        // twin is quieter so glass bends environmental detail without
+        // looking like a grid texture was pasted onto the surface.
+        uOpacity: { value: captureOnly ? (dark ? 0.28 : 0.24) : (dark ? 0.5 : 0.4) },
         uCell: { value: Math.max(0.5, radius / 4) },
-      },
-      vertexShader: /* glsl */ `
-        varying vec2 vPos;
-        void main() {
-          vPos = position.xy;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }`,
-      fragmentShader: /* glsl */ `
-        uniform vec3 uColor;
-        uniform float uExtent;
-        uniform float uOpacity;
-        uniform float uCell;
-        varying vec2 vPos;
-        float gridLine(vec2 p, float scale) {
-          vec2 q = p / scale;
-          vec2 g = abs(fract(q - 0.5) - 0.5) / fwidth(q);
-          return 1.0 - min(min(g.x, g.y), 1.0);
-        }
-        void main() {
-          float fine = gridLine(vPos, uCell) * 0.5;
-          float coarse = gridLine(vPos, uCell * 4.0);
-          float g = max(fine, coarse);
-          float r = length(vPos);
-          float fade = 1.0 - smoothstep(uExtent * 0.22, uExtent * 0.52, r);
-          float a = g * fade * uOpacity;
-          if (a < 0.003) discard;
-          gl_FragColor = vec4(uColor, a);
-        }`,
+        uCaptureOnly: { value: captureOnly ? 1 : 0 },
+        uCapturePass: { value: captureOnly ? 0 : 1 },
+      });
+
+    const visibleMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: makeUniforms(false),
+      vertexShader,
+      fragmentShader,
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(extent * 2, extent * 2), mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = floorY;
-    mesh.renderOrder = -3;
-    this.group.add(mesh);
-    this._parts.grid = mesh;
+
+    // Three's physical-transmission buffer renders opaque-list objects only.
+    // This twin is classified as opaque but contributes exclusively while
+    // that off-screen buffer (the only mipmapped render target) is active.
+    // Custom alpha blending preserves the already-rendered scene background.
+    const captureMaterial = new THREE.ShaderMaterial({
+      transparent: false,
+      depthWrite: false,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.AddEquation,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      uniforms: makeUniforms(true),
+      vertexShader,
+      fragmentShader,
+    });
+    const geometry = new THREE.PlaneGeometry(extent * 2, extent * 2);
+    const captureMesh = new THREE.Mesh(geometry, captureMaterial);
+    captureMesh.rotation.x = -Math.PI / 2;
+    captureMesh.position.y = floorY;
+    captureMesh.renderOrder = -4;
+    captureMesh.onBeforeRender = (renderer) => {
+      const target = renderer.getRenderTarget();
+      captureMaterial.uniforms.uCapturePass.value = target?.texture?.generateMipmaps === true ? 1 : 0;
+    };
+
+    const visibleMesh = new THREE.Mesh(geometry.clone(), visibleMaterial);
+    visibleMesh.rotation.x = -Math.PI / 2;
+    visibleMesh.position.y = floorY;
+    visibleMesh.renderOrder = -3;
+
+    const group = new THREE.Group();
+    group.add(captureMesh, visibleMesh);
+    this.group.add(group);
+    this._parts.grid = group;
   }
 
   _buildRings() {

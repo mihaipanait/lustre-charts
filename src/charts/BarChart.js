@@ -13,7 +13,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 import { BaseChart } from '../core/BaseChart.js';
 import { createTooltipContent } from '../overlay/Tooltip.js';
-import { createItemMaterial } from '../materials/materials.js';
+import { createItemMaterial, materialPrefersSharpEdges } from '../materials/materials.js';
 import { resolvePalette } from '../core/palettes.js';
 import { optionPatchNeedsRebuild } from '../core/runtimeOptions.js';
 import { niceNumber, formatCompact, svgEl } from '../core/utils.js';
@@ -109,7 +109,7 @@ export class BarChart extends BaseChart {
     this.items = [];
     this.pickables = [];
     let anyBloom = false;
-    const isNeon = presetOf(this.options.material) === 'neon';
+    const useCrispGeometry = materialPrefersSharpEdges(this.options.material);
 
     series.forEach((s, si) => {
       s.values.forEach((value, ci) => {
@@ -126,7 +126,7 @@ export class BarChart extends BaseChart {
 
         const h = Math.max(0.02, value * L.unit);
         const w = b.barWidth, d = b.barDepth;
-        const geo = isNeon
+        const geo = useCrispGeometry
           ? new THREE.BoxGeometry(w, h, d)
           : new RoundedBoxGeometry(w, h, d, 3, Math.min(b.cornerRadius, h / 2.5, w / 2.5));
         geo.translate(0, h / 2, 0);
@@ -139,6 +139,43 @@ export class BarChart extends BaseChart {
         const group = new THREE.Group();
         group.add(mesh);
         this.chartGroup.add(group);
+
+        const layers = [];
+        let layerStack = 0;
+        for (const layerSpec of spec.layers || []) {
+          const lateralInset = Math.max(0.008, Math.min(w, d) * layerSpec.inset);
+          const layerW = Math.max(0.02, w - lateralInset * 2);
+          const layerD = Math.max(0.02, d - lateralInset * 2);
+          const layerH = Math.max(0.018, Math.max(0.4, Math.min(w, d)) * layerSpec.height);
+          const layerRadius = Math.min(b.cornerRadius * 0.7, layerH * 0.4, layerW * 0.22, layerD * 0.22);
+          const layerGeo = new RoundedBoxGeometry(layerW, layerH, layerD, 3, layerRadius);
+          const layerBottom = layerStack - layerH * (layerSpec.embed ?? 0);
+          const offsetY = layerBottom + layerH / 2;
+          const layerMesh = new THREE.Mesh(layerGeo, layerSpec.material);
+          layerMesh.position.set(mesh.position.x, h + offsetY, mesh.position.z);
+          group.add(layerMesh);
+
+          let layerOutline = null;
+          if (layerSpec.outline) {
+            const lineMat = new LineMaterial({
+              color: layerSpec.outline.color,
+              linewidth: layerSpec.outline.widthPx,
+              transparent: true,
+              opacity: layerSpec.outline.opacity,
+              depthWrite: false,
+              toneMapped: false,
+            });
+            this.registerLineMaterial(lineMat);
+            const edges = new THREE.EdgesGeometry(layerGeo, 30);
+            const lineGeo = new LineSegmentsGeometry().fromEdgesGeometry(edges);
+            edges.dispose();
+            layerOutline = new LineSegments2(lineGeo, lineMat);
+            layerOutline.position.copy(layerMesh.position);
+            group.add(layerOutline);
+          }
+          layers.push({ spec: layerSpec, mesh: layerMesh, outline: layerOutline, offsetY });
+          layerStack = Math.max(layerStack, layerBottom + layerH);
+        }
 
         let outline = null;
         if (spec.outline) {
@@ -163,7 +200,7 @@ export class BarChart extends BaseChart {
           index, ci, si,
           label: categories[ci],
           seriesName: s.name,
-          value, color, spec, mesh, group, outline,
+          value, color, spec, mesh, group, outline, layers,
           height: h,
           visible: true,
           hoverT: 0,
@@ -181,6 +218,15 @@ export class BarChart extends BaseChart {
     for (const it of this.items) {
       it.mesh.geometry.dispose();
       it.spec.material.dispose();
+      for (const layer of it.layers || []) {
+        layer.mesh.geometry.dispose();
+        layer.spec.material.dispose();
+        if (layer.outline) {
+          layer.outline.geometry.dispose();
+          this._lineMaterials.delete(layer.outline.material);
+          layer.outline.material.dispose();
+        }
+      }
       if (it.outline) {
         it.outline.geometry.dispose();
         this._lineMaterials.delete(it.outline.material);
@@ -197,7 +243,7 @@ export class BarChart extends BaseChart {
     this._computeLayout();
     const L = this._layoutInfo;
     const b = this.options.bar;
-    const isNeon = presetOf(this.options.material) === 'neon';
+    const useCrispGeometry = materialPrefersSharpEdges(this.options.material);
     this.tweens.kill('bar-height');
 
     this._data.series.forEach((s, si) => {
@@ -213,7 +259,7 @@ export class BarChart extends BaseChart {
 
         // rebuild geometry at the final height so bevels end up perfect
         item.mesh.geometry.dispose();
-        const geo = isNeon
+        const geo = useCrispGeometry
           ? new THREE.BoxGeometry(b.barWidth, newH, b.barDepth)
           : new RoundedBoxGeometry(b.barWidth, newH, b.barDepth, 3, Math.min(b.cornerRadius, newH / 2.5, b.barWidth / 2.5));
         geo.translate(0, newH / 2, 0);
@@ -228,6 +274,7 @@ export class BarChart extends BaseChart {
         const fromScale = oldH / newH;
         item.mesh.scale.y = fromScale;
         if (item.outline) item.outline.scale.y = fromScale;
+        this._setLayerVerticalScale(item, fromScale);
         this.tweens.add({
           duration: this.options.animation.updateDuration,
           easing: 'cubicInOut',
@@ -236,6 +283,7 @@ export class BarChart extends BaseChart {
             const sc = fromScale + (1 - fromScale) * t;
             item.mesh.scale.y = sc;
             if (item.outline) item.outline.scale.y = sc;
+            this._setLayerVerticalScale(item, sc);
             this.requestRender();
           },
         });
@@ -245,10 +293,33 @@ export class BarChart extends BaseChart {
     this.setAriaLabel(this._summary());
   }
 
+  _setLayerVerticalScale(item, scale) {
+    for (const layer of item.layers || []) {
+      layer.mesh.scale.y = scale;
+      layer.mesh.position.y = (item.height + layer.offsetY) * scale;
+      if (layer.outline) {
+        layer.outline.scale.y = scale;
+        layer.outline.position.y = layer.mesh.position.y;
+      }
+    }
+  }
+
+  _setLayerHorizontalScale(item, scale) {
+    for (const layer of item.layers || []) {
+      layer.mesh.scale.x = scale;
+      layer.mesh.scale.z = scale;
+      if (layer.outline) {
+        layer.outline.scale.x = scale;
+        layer.outline.scale.z = scale;
+      }
+    }
+  }
+
   _snapFinal() {
     for (const it of this.items) {
       it.mesh.scale.y = it.visible ? 1 : 0.0001;
       if (it.outline) it.outline.scale.y = it.mesh.scale.y;
+      this._setLayerVerticalScale(it, it.mesh.scale.y);
     }
     this._entranceProgress = 1;
     this.requestRender();
@@ -357,6 +428,7 @@ export class BarChart extends BaseChart {
       } else {
         item.mesh.scale.y = 0.0001;
         if (item.outline) item.outline.scale.y = 0.0001;
+        this._setLayerVerticalScale(item, 0.0001);
         this.tweens.add({
           duration: anim.duration * 0.55,
           delay,
@@ -366,6 +438,7 @@ export class BarChart extends BaseChart {
             const sc = Math.max(0.0001, t) * (item.visible ? 1 : 0.0001);
             item.mesh.scale.y = sc;
             if (item.outline) item.outline.scale.y = sc;
+            this._setLayerVerticalScale(item, sc);
             this._entranceProgress = Math.max(this._entranceProgress, t * 0.98);
             this.requestRender();
           },
@@ -421,6 +494,7 @@ export class BarChart extends BaseChart {
             item.outline.scale.x = s;
             item.outline.scale.z = s;
           }
+          this._setLayerHorizontalScale(item, s);
           this.requestRender();
         },
       });
@@ -445,6 +519,7 @@ export class BarChart extends BaseChart {
         onUpdate: (v) => {
           it.mesh.scale.y = v;
           if (it.outline) it.outline.scale.y = v;
+          this._setLayerVerticalScale(it, v);
           this.requestRender();
         },
         from,
@@ -602,10 +677,6 @@ export class BarChart extends BaseChart {
 /* -------------------------------------------------------------------- */
 
 const _v3 = new THREE.Vector3();
-
-function presetOf(material) {
-  return typeof material === 'string' ? material : material?.preset;
-}
 
 function mergeMaterialCfg(globalCfg, itemCfg) {
   if (!itemCfg) return globalCfg;

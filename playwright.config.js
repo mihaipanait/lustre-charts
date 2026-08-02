@@ -3,7 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './browser-tests',
   fullyParallel: true,
-  timeout: 30_000,
+  // PMREM generation is intentionally GPU-heavy. Chromium's software renderer
+  // can take well over a minute for the demo's real 1024px showcase path.
+  timeout: 180_000,
   expect: {
     timeout: 8_000,
   },

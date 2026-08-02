@@ -43,6 +43,7 @@ async function run() {
     options: {
       animation: { entrance: 'none' },
       interaction: { enabled: false },
+      quality: { preset: 'balanced' },
       responsive: false,
     },
   });
@@ -121,6 +122,7 @@ async function run() {
     ],
     options: {
       animation: { entrance: 'none', updateDuration: 20 },
+      quality: { preset: 'balanced' },
       radial: { track: true },
       responsive: false,
     },
@@ -191,6 +193,7 @@ async function run() {
     },
     options: {
       animation: { entrance: 'none' },
+      quality: { preset: 'balanced' },
       responsive: false,
     },
   });

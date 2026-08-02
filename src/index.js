@@ -28,9 +28,10 @@ import { PALETTES } from './core/palettes.js';
 import { MATERIAL_PRESETS } from './materials/materials.js';
 import { Easings } from './core/Tween.js';
 import { DEFAULT_OPTIONS } from './core/defaults.js';
+import { QUALITY_PRESETS } from './core/runtimeOptions.js';
 
 /** Library version (kept in sync with package.json). */
-export const VERSION = '0.2.1';
+export const VERSION = '0.3.0';
 
 /** @type {Record<string, any>} */
 const REGISTRY = {
@@ -79,6 +80,7 @@ export { PALETTES as LustrePalettes };
 export { MATERIAL_PRESETS };
 export { Easings };
 export { DEFAULT_OPTIONS };
+export { QUALITY_PRESETS };
 export { buildProfile, buildSliceGeometry } from './geometry/sliceGeometry.js';
 export { createItemMaterial } from './materials/materials.js';
 

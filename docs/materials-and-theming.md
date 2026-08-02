@@ -8,23 +8,33 @@ material (surface)  ×  palette (colors)  ×  theme (scene)  ×  effects (garnis
 
 ## Material presets
 
-All presets are physically based (`MeshPhysicalMaterial`) and lit by Lustre's
-procedural **studio environment**: a black room with a handful of bright softboxes
-(plus a bright surround on light themes). That's why metals get long elegant streaks
-and colors stay saturated — there is almost no diffuse wash.
+The reflective and translucent presets are physically based (`MeshPhysicalMaterial`)
+and lit by Lustre's procedural **studio environment**: a black room with a handful
+of bright softboxes (plus a bright surround on light themes). Graphic presets use
+Three's toon lighting or small procedural shader treatments while retaining the
+same shadows, interaction, and tone-mapping pipeline. No surface texture downloads
+are required.
 
 | Preset | Vibe | Notes |
 |---|---|---|
 | `glossy` | Candy / automotive clearcoat | The classic premium-infographic look. Default. |
-| `glass` | Tinted refractive glass | Transmission, absorption, slight dispersion; frosted with an inner glow on dark themes. |
+| `glass` | Tinted refractive glass | Full transmission, subtle volume absorption, slight dispersion, and polished reflections. |
 | `metal` | Brushed metal | Anisotropic highlights. Pairs beautifully with `palette: 'metal'`. |
 | `neon` | Translucent body + glowing rims | Auto-enables bloom; crisp `straight` profile by default. |
 | `hologram` | Iridescent sci-fi UI | Thin-film iridescence + rim lines; bloom auto-enables. |
 | `matte` | Soft minimal | For clean business dashboards, especially on light. |
+| `toon` | Editorial 3D illustration | Four-step toon lighting, crisp geometry, and heavy ink outlines. |
+| `halftone` | Comic print | Anti-aliased procedural dots with bold outlines; no bitmap texture. |
+| `iridescent` | Opaque thin film | Strong spectral color shift as the camera moves. |
+| `crystal` | Polished optical glass | High IOR, strong dispersion, precise clearcoat, and long absorption depth. |
+| `acrylic` | Frosted translucent polymer | Soft transmission and milky depth under a polished skin. |
+| `velvet` | Soft textile | Dark diffuse body with colored grazing-angle sheen. |
+| `inset` | Inset white face | A smaller solid-white face is physically sunk into a colored backing silhouette. |
 
 ### Overriding a preset
 
-Pass an object instead of a string — every `MeshPhysicalMaterial` property is fair game:
+Pass an object instead of a string. Physical presets accept
+`MeshPhysicalMaterial` properties; `toon` accepts `MeshToonMaterial` properties:
 
 ```js
 options: {
@@ -33,11 +43,43 @@ options: {
     roughness: 0.02,
     ior: 1.8,
     dispersion: 0.6,
-    outline: false,          // suppress rim lines (neon/hologram)
-    // outline: { widthPx: 3, opacity: 0.8 },  // …or tune them
+    thicknessScale: 1.25,   // multiply geometry-aware volume depth
+    attenuationScale: 0.15, // glass-family default; 0 requests maximum absorption
+    environmentScale: 0.8, // soften studio reflections relative to the preset
+    surfaceSide: 'double',  // render entry and rear volume surfaces
+    outline: false,          // suppress rims on outlined presets
+    // outline: { color: '#ffffff', widthPx: 3, opacity: 0.8 },
   },
 }
 ```
+
+Generated geometry and procedural shaders have focused nested controls:
+
+```js
+// Physically embedded face
+material: {
+  preset: 'inset',
+  layer: {
+    color: '#fff4c7',
+    inset: 0.14,
+    height: 0.12,
+    embed: 0.75,
+    roughness: 0.2,
+    outline: { color: '#4b2a13', widthPx: 1.5 },
+  },
+}
+
+// Procedural print treatment
+material: {
+  preset: 'halftone',
+  shader: { scale: 9, dotSize: 0.18, inkStrength: 0.92 },
+  outline: { color: '#ffffff', widthPx: 3 },
+}
+```
+
+The interactive demo's **Material settings** panel exposes the useful controls
+for every preset, shows the active defaults, retains edits while switching
+presets, and includes them in **Copy config** / **View config**.
 
 Per-item overrides work the same way inside pie and radial data (`{ label, value, material: {...} }`).
 
@@ -158,5 +200,25 @@ options: {
   background: 'transparent',
   effects: { bloom: false },
   legend: { show: false },
+}
+```
+
+**Spectral material study**
+
+```js
+options: {
+  theme: 'dark', material: 'iridescent', palette: 'aurora',
+  camera: { autoRotate: true }, // the finish changes with view angle
+  pie: { profile: 'pillow', height: 1.35, padAngle: 2 },
+}
+```
+
+**Pop-art infographic**
+
+```js
+options: {
+  theme: 'light', material: 'halftone', palette: 'candy',
+  pie: { profile: 'straight', height: 1.65, padAngle: 3 },
+  effects: { bloom: false, shadow: true },
 }
 ```
