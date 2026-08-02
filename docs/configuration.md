@@ -33,7 +33,7 @@ intentionally replaces it.
 | `theme` | `'dark'` | `'dark'`, `'light'`, or a [custom theme object](materials-and-theming.md#custom-themes). |
 | `background` | `'auto'` | `'auto'` (theme backdrop), `'transparent'`, a CSS color, or `{ inner, outer }` for an in-canvas radial gradient. |
 | `palette` | `'aurora'` | Palette name (`aurora`, `neon`, `metal`, `candy`, `ocean`, `sunset`, `violet`, `mono`) or an array of colors. Auto-extended when the data has more items. |
-| `material` | `'glossy'` | One of the thirteen [material presets](materials-and-theming.md#material-presets), or `{ preset, ...overrides }` with material properties plus `outline`, `layer`, `shader`, `thicknessScale`, `attenuationScale`, `environmentScale`, and `surfaceSide`. |
+| `material` | `'glossy'` | One of the fourteen [material presets](materials-and-theming.md#material-presets), or `{ preset, ...overrides }` with material properties plus `outline`, `layer`, `shader`, `thicknessScale`, `attenuationScale`, `environmentScale`, and `surfaceSide`. |
 | `responsive` | `true` | Follow the container size via `ResizeObserver`. |
 | `ariaLabel` | `null` | Accessible canvas description. Defaults to an auto-generated data summary. |
 

@@ -161,7 +161,7 @@ chart.applyOptions({ quality: { preset: 'ultra' } });
 ## Next steps
 
 - Skim the [configuration reference](configuration.md) — everything is an option.
-- Try the [materials & theming guide](materials-and-theming.md) for all thirteen looks.
+- Try the [materials & theming guide](materials-and-theming.md) for all fourteen looks.
 - Chart specifics: [pie/donut](charts/pie.md), [radial](charts/radial.md), [bar](charts/bar.md).
 - Or just open the demo (`npm run dev` → `http://localhost:5173/demo/`) and copy
   the generated config.

@@ -109,6 +109,7 @@ export class BarChart extends BaseChart {
     this.items = [];
     this.pickables = [];
     let anyBloom = false;
+    let anyBacklight = false;
     const useCrispGeometry = materialPrefersSharpEdges(this.options.material);
 
     series.forEach((s, si) => {
@@ -123,6 +124,7 @@ export class BarChart extends BaseChart {
           thickness: Math.max(0.4, b.barWidth),
         });
         anyBloom = anyBloom || spec.wantsBloom;
+        anyBacklight = anyBacklight || spec.wantsBacklight;
 
         const h = Math.max(0.02, value * L.unit);
         const w = b.barWidth, d = b.barDepth;
@@ -210,6 +212,7 @@ export class BarChart extends BaseChart {
     });
 
     this.resolveBloom(anyBloom);
+    this.resolveBacklight(anyBacklight);
     this._buildAxis();
     this.setAriaLabel(this._summary());
   }

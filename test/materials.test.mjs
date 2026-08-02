@@ -15,13 +15,14 @@ const theme = {
 };
 
 test('every advertised material preset resolves to an interactive material spec', () => {
-  assert.equal(MATERIAL_PRESETS.length, 13);
+  assert.equal(MATERIAL_PRESETS.length, 14);
   for (const preset of MATERIAL_PRESETS) {
     const spec = createItemMaterial({ material: preset, color: '#2fe0c7', theme, thickness: 1 });
     assert.ok(spec.material instanceof THREE.Material, preset);
     assert.equal(typeof spec.material.emissiveIntensity, 'number', preset);
     assert.ok(Number.isFinite(spec.hoverEmissive), preset);
     assert.ok(Number.isFinite(spec.baseEmissive), preset);
+    assert.equal(typeof spec.wantsBacklight, 'boolean', preset);
     for (const layer of spec.layers || []) layer.material.dispose();
     spec.material.dispose();
   }
@@ -72,6 +73,45 @@ test('procedural shader controls are exported as live uniforms', () => {
   assert.equal(shader.uniforms.uLustreDotSize.value, 0.14);
   assert.equal(shader.uniforms.uLustreInkStrength.value, 0.63);
   assert.match(shader.fragmentShader, /uniform float uLustreScale/);
+  material.dispose();
+});
+
+test('subsurface augments direct physical lighting with editable diffusion lobes', () => {
+  const { material } = createItemMaterial({
+    material: {
+      preset: 'subsurface',
+      shader: { strength: 1.1, radius: 1.25, wrap: 0.42, backscatter: 0.9 },
+    },
+    color: '#72ef6c',
+    theme,
+    thickness: 1,
+  });
+  const shader = {
+    uniforms: {},
+    vertexShader: '',
+    fragmentShader: '#include <common>\n#include <lights_physical_pars_fragment>\nvoid main() {}',
+  };
+  material.onBeforeCompile(shader);
+  assert.equal(shader.uniforms.uLustreStrength.value, 1.1);
+  assert.equal(shader.uniforms.uLustreRadius.value, 1.25);
+  assert.equal(shader.uniforms.uLustreWrap.value, 0.42);
+  assert.equal(shader.uniforms.uLustreBackscatter.value, 0.9);
+  assert.match(shader.fragmentShader, /LUSTRE_RE_Direct_Physical/);
+  assert.match(shader.fragmentShader, /RE_Direct_LustreSubsurface/);
+  assert.match(shader.fragmentShader, /lustreBackProfile/);
+  assert.match(shader.fragmentShader, /lustreScatteredIrradiance/);
+  assert.match(material.customProgramCacheKey(), /subsurface/);
+  assert.ok(material.transmission > 0);
+  assert.ok(material.transmission < 0.75);
+  assert.equal(material.side, THREE.DoubleSide);
+  assert.ok(material.thickness > 0);
+  assert.ok(material.attenuationDistance > 0);
+  const backlit = createItemMaterial({ material: 'subsurface', color: '#72ef6c', theme });
+  const opaque = createItemMaterial({ material: 'glossy', color: '#72ef6c', theme });
+  assert.equal(backlit.wantsBacklight, true);
+  assert.equal(opaque.wantsBacklight, false);
+  backlit.material.dispose();
+  opaque.material.dispose();
   material.dispose();
 });
 

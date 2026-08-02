@@ -19,6 +19,7 @@ export type MaterialPreset =
   | 'iridescent'
   | 'crystal'
   | 'acrylic'
+  | 'subsurface'
   | 'velvet'
   | 'inset';
 export type PaletteName = 'aurora' | 'neon' | 'metal' | 'candy' | 'ocean' | 'sunset' | 'violet' | 'mono';
@@ -455,6 +456,7 @@ export interface MaterialSpec {
     } | null;
   }> | null;
   wantsBloom: boolean;
+  wantsBacklight: boolean;
 }
 
 export const VERSION: string;

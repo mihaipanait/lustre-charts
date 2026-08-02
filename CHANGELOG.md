@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a `subsurface` gel/wax preset that combines restrained physical
+  transmission with palette-aware wrapped diffusion and back-scattering,
+  including a material-aware rear light and live optical, radius, light-wrap,
+  and backlight controls in the material lab.
+
 ## [0.3.1] — 2026-08-02
 
 ### Changed

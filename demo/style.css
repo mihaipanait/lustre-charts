@@ -284,6 +284,7 @@ body[data-theme='light'] .chip.has-edits::after { background: var(--accent-2); b
 .swatch-iridescent { background: conic-gradient(from 35deg, #52f7e8, #5f6dff, #ec4bda, #ffd95e, #52f7e8); box-shadow: inset 0 0 8px rgba(255,255,255,.65); }
 .swatch-crystal { background: linear-gradient(145deg, rgba(255,255,255,.9), rgba(63,225,255,.4) 38%, rgba(234,77,255,.45) 70%, rgba(255,226,91,.65)); border: 1px solid rgba(255,255,255,.72); }
 .swatch-acrylic { background: linear-gradient(145deg, rgba(217,245,255,.92), rgba(68,135,255,.48)); border: 1px solid rgba(255,255,255,.6); box-shadow: inset 5px 5px 10px rgba(255,255,255,.28); }
+.swatch-subsurface { background: radial-gradient(circle at 72% 28%, #fff6c9 0%, #a9ff85 15%, #28c969 44%, #07512f 100%); box-shadow: inset -5px -6px 12px rgba(0,35,20,.6), inset 4px 4px 8px rgba(255,255,210,.55); }
 .swatch-velvet { background: radial-gradient(ellipse at 72% 24%, #d8abff 0%, #7145a9 24%, #211134 74%); }
 .swatch-inset { background: #fff; border: 4px solid #6140ad; box-shadow: 0 2px 5px rgba(40, 18, 82, 0.5); }
 

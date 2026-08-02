@@ -143,6 +143,7 @@ export class RadialChart extends BaseChart {
     const p = this.options.radial;
     this.pickables = [];
     let anyBloom = false;
+    let anyBacklight = false;
 
     for (const item of this.items) {
       item.mesh = null;
@@ -181,6 +182,7 @@ export class RadialChart extends BaseChart {
       });
       item.spec = spec;
       anyBloom = anyBloom || spec.wantsBloom;
+      anyBacklight = anyBacklight || spec.wantsBacklight;
 
       const group = new THREE.Group();
       if (p.track) {
@@ -265,6 +267,7 @@ export class RadialChart extends BaseChart {
     }
 
     this.resolveBloom(anyBloom);
+    this.resolveBacklight(anyBacklight);
     if (this.hoveredIndex != null) this.setHover(this.hoveredIndex);
   }
 
