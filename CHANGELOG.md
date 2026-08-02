@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-02
+
+### Changed
+
+- Refresh the README hero, gallery, radial sample, and demo screenshot using
+  the current high-quality renderer and showcase settings.
+- Add representative glass, crystal, iridescent, toon, and inset renders so
+  the gallery accurately presents the expanded material system.
+- Document the per-material editor, exported shader/material settings, and
+  raw quality controls more prominently in the README.
+- Correct the README's Three.js compatibility badge to the supported
+  r175–r185 range.
+
 ## [0.3.0] — 2026-08-02
 
 ### Added

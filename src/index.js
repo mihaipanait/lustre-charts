@@ -31,7 +31,7 @@ import { DEFAULT_OPTIONS } from './core/defaults.js';
 import { QUALITY_PRESETS } from './core/runtimeOptions.js';
 
 /** Library version (kept in sync with package.json). */
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 
 /** @type {Record<string, any>} */
 const REGISTRY = {

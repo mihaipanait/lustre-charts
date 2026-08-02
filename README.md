@@ -11,13 +11,13 @@ This library brings those finishes to your data.*
 [![CI](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml/badge.svg)](https://github.com/mihaipanait/lustre-charts/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/badge/npm-lustre--charts-cb3837?logo=npm)](https://www.npmjs.com/package/lustre-charts)
 [![license](https://img.shields.io/badge/license-MIT-7c4dff)](LICENSE)
-[![three.js](https://img.shields.io/badge/three.js-r167--r185-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)
+[![three.js](https://img.shields.io/badge/three.js-r175--r185-00e5ff?logo=three.js&logoColor=white)](https://threejs.org)
 [![zero deps](https://img.shields.io/badge/runtime%20deps-zero-39ff88)](package.json)
 [![no build](https://img.shields.io/badge/build%20step-none-ffb300)](#development)
 
 <img src="docs/assets/hero-donut-dark.jpg" alt="Lustre donut chart, glossy material, dark theme" width="820" />
 
-**[▶ Play with the live demo](https://mihaipanait.github.io/lustre-charts/)** — every material, palette and effect, right in your browser.
+**[▶ Play with the live demo](https://mihaipanait.github.io/lustre-charts/)** — tune every material, palette, effect and quality setting, then export the exact configuration.
 
 *Few chart types. Obsessive attention to how they look.*
 
@@ -39,13 +39,13 @@ Everything else is *look and feel*:
 
 | | |
 |---|---|
-| 🎨 **13 material presets** | PBR, translucent, spectral, fabric, toon, procedural print, and inset finishes — tuned per theme and overridable |
+| 🎨 **13 material presets** | PBR, translucent, spectral, fabric, toon, procedural print, and inset finishes — each with curated, exportable controls |
 | 🌗 **Themes** | `dark`, `light`, fully custom objects, transparent backgrounds |
 | 🌈 **8 palettes** | aurora, neon, metal, candy, ocean, sunset, violet, mono — or any color array, auto-extended for large datasets |
 | ✨ **Effects** | bloom post-processing, neon grid floor, HUD rings, floating particles, soft contact shadow |
 | 🎬 **Motion** | sweep / rise / scale / wave / grow entrances, tweened data updates, hover lift & glow, click-to-explode/lift |
 | 🏷 **Overlays** | SVG callout labels (dot + elbow leader), frosted-glass tooltip, interactive legend with animated re-layout |
-| ♻️ **Engineering** | render-on-demand loop, `ResizeObserver` responsive, PNG export, complete `destroy()`, zero dependencies beyond `three` |
+| ♻️ **Engineering** | render-on-demand loop, `ResizeObserver` responsive, PNG + configuration export, complete `destroy()`, zero dependencies beyond `three` |
 
 ## Gallery
 
@@ -57,9 +57,13 @@ Everything else is *look and feel*:
 |---|---|---|
 | ![neon](docs/assets/neon-dark.jpg) | ![neon bars](docs/assets/bar-neon.jpg) | ![glass](docs/assets/glass-dark.jpg) |
 
-| `tube` profile | Custom profile (your own points!) | Click to explode |
+| Crystal · dark | Iridescent · dark | Inset face · dark |
 |---|---|---|
-| ![tube profile](docs/assets/profile-tube.jpg) | ![custom profile](docs/assets/profile-custom.jpg) | ![explode](docs/assets/explode.jpg) |
+| ![crystal](docs/assets/crystal-dark.jpg) | ![iridescent](docs/assets/iridescent-dark.jpg) | ![inset](docs/assets/inset-dark.jpg) |
+
+| Toon · light | `tube` profile | Custom profile (your own points!) |
+|---|---|---|
+| ![toon](docs/assets/toon-light.jpg) | ![tube profile](docs/assets/profile-tube.jpg) | ![custom profile](docs/assets/profile-custom.jpg) |
 
 ## Quick start
 
@@ -130,17 +134,23 @@ options: { material: { preset: 'glass', roughness: 0.02, ior: 1.8 } } // overrid
 options: { material: { preset: 'toon', outline: { color: '#fff', widthPx: 4 } } }
 ```
 
+Every preset has a curated editor in the demo. It shows the active defaults,
+supports per-control and per-material resets, retains edits while you compare
+finishes, and includes the active material/shader settings in **Copy config**
+and **View config**.
+
 ### Reference or balanced quality
 
 ```js
-options: { quality: { preset: 'ultra' } }     // 512px reflections, 256-segment curves (default)
-options: { quality: { preset: 'balanced' } }  // lighter 256px environment and geometry
+options: { quality: { preset: 'ultra' } }     // 512px PMREM, 256/16/64 geometry (default)
+options: { quality: { preset: 'balanced' } }  // 256px PMREM, 256/8/32 geometry
 ```
 
-Both tiers keep physical transmission at full resolution. Individual PMREM,
-profile, and angular-segment settings can also be overridden, including
-64–2048px PMREM faces. The demo intentionally starts at 1024px for close
-inspection; 2048px is available there as a high-memory experiment.
+Both tiers keep physical transmission at full resolution. Expert overrides
+include `environmentSize` (64–2048px PMREM faces), `radialResolution`
+(24–512 angular segments), `roundedSegments`, `tubeSegments`, PMREM blur, and
+transmission resolution scale. The demo intentionally starts at 1024px for
+close inspection; 2048px is available as an experimental, high-memory option.
 
 ### Cross-section profiles
 
@@ -233,8 +243,11 @@ cd lustre-charts
 npm run dev            # → http://localhost:5173/demo/
 ```
 
-The [demo](demo/) lets you flip through every chart type, material, palette, theme, profile and
-effect — and generates the config snippet for whatever you build.
+The [demo](demo/) lets you flip through every chart type, material, palette,
+theme, profile and effect. **Material settings** exposes the useful artistic
+controls for the selected finish, while **Quality lab** exposes raw PMREM,
+transmission and geometry settings. **Copy config** / **View config** includes
+those active material, shader and quality overrides in the generated snippet.
 
 <img src="docs/assets/demo-page.jpg" alt="Lustre demo playground" width="820" />
 
